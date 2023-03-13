@@ -1,3 +1,9 @@
+# Project directories
+tests/
+
+# Others
+.DS_Store
+
 # Airflow configuration
 airflow.cfg
 unittests.cfg
