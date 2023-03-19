@@ -1,16 +1,17 @@
 from typing import *
+import re
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import pandas as pd
 
 
-def process_tweet(tweet: str):
+def process_tweets(tweet: str):
     """
-    Remove url and trailing whitespace
+    Clean tweets before sentiment prediction.
     """
-    tokens = tweet.split()
-    tokens = tokens[:-1]
-    tweet = ' '.join(tokens)
+    tweet = re.sub(r'[#@]\S+', '', tweet)
+    tweet = re.sub(r'http\S+', '', tweet)
+    tweet = ' '.join(tweet.split())
     return tweet
 
 
@@ -43,14 +44,13 @@ def transformer_predict(tweets: List[str], verbose: bool = False) -> List[int]:
     return preds
 
 
-def get_tweets_sentiment(tweets_df: pd.DataFrame, id_col: str, text_col: str) -> pd.DataFrame:
+def get_tweets_sentiment(tweets_df: pd.DataFrame, id_col: str = 'tweet_id', time_col: str = 'time_pulled', text_col: str = 'content') -> pd.DataFrame:
     """
     Return a dataframe of tweet ids and corresponding sentiments.
     """
     ids = tweets_df[id_col].tolist()
-    processed_tweets = tweets_df[text_col].apply(process_tweet).tolist()
-    sentiments = transformer_predict(processed_tweets)
-    sentiments_df = pd.DataFrame({f'{id_col}': ids, 'sentiment': sentiments})
+    time = tweets_df[time_col].tolist()
+    tweets = tweets_df[text_col].apply(process_tweets).tolist()
+    sentiments = transformer_predict(tweets)
+    sentiments_df = pd.DataFrame({f'{id_col}': ids, f'{time_col}': time,'sentiment': sentiments})
     return sentiments_df
-
-
