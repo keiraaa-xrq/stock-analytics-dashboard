@@ -44,13 +44,18 @@ def transformer_predict(tweets: List[str], verbose: bool = False) -> List[int]:
     return preds
 
 
-def get_tweets_sentiment(tweets_df: pd.DataFrame, id_col: str = 'tweet_id', time_col: str = 'time_pulled', text_col: str = 'content') -> pd.DataFrame:
+def get_tweets_sentiment(
+    tweets_df: pd.DataFrame, 
+    id_col: str = 'tweet_id', 
+    time_col: str = 'time_pulled', 
+    text_col: str = 'content'
+) -> pd.DataFrame:
     """
-    Return a dataframe of tweet ids and corresponding sentiments.
+    Return a dataframe of tweet ids, scraped time and corresponding sentiments.
     """
     ids = tweets_df[id_col].tolist()
     time = tweets_df[time_col].tolist()
     tweets = tweets_df[text_col].apply(process_tweets).tolist()
     sentiments = transformer_predict(tweets)
-    sentiments_df = pd.DataFrame({f'{id_col}': ids, f'{time_col}': time,'sentiment': sentiments})
+    sentiments_df = pd.DataFrame({f'{id_col}': ids, f'{time_col}': time, 'sentiment': sentiments})
     return sentiments_df
