@@ -1,15 +1,16 @@
-from datetime import datetime, timedelta
+from pendulum import datetime
 from airflow.decorators import dag, task
 from src.scrape_tweets import get_tweets_n_min
 from src.predict_sentiments import get_tweets_sentiment
 from src.aggregate_sentiments import aggregate_sentiments
+from src.bigquery import load_dataframe_to_bigquery
 
 @dag(
     description='Twitter Data Pipeline',
-    schedule=timedelta(minutes=30),
-    start_date=datetime(2023, 3, 19, 15),
-    end_date=datetime(2023, 3, 19, 18),
-    catchup=True
+    schedule='@hourly',
+    start_date=datetime(2023, 3, 20, 11, 0),
+    end_date=datetime(2023, 3, 20, 13, 0),
+    catchup=False
 )
 def twitter_dag():
 
@@ -17,21 +18,15 @@ def twitter_dag():
     def get_tweets_task(data_interval_end=None):
         dte = data_interval_end
         end_time = datetime(dte.year, dte.month, dte.day, dte.hour, dte.minute)
+        print('-'*10, end_time, '-'*10)
         tweets_df = get_tweets_n_min(end_time)
-        return tweets_df
-
-    @task
-    def get_sentiments_task(tweets_df):
-        sentiments_df = get_tweets_sentiment(tweets_df)
-        return sentiments_df
-
-    @task
-    def aggregate_sentiments_task(sentiments_df):
-        sentiments_agg = aggregate_sentiments(sentiments_df)
-
+        print('-'*10, tweets_df.shape, '-'*10)
+        try:
+            load_dataframe_to_bigquery(tweets_df, 'Twitter.Tweets')
+        except Exception as e:
+            print(e)
+        
     # task dependdency
-    tweets_df = get_tweets_task()
-    sentiments_df = get_sentiments_task(tweets_df)
-    aggregate_sentiments_task(sentiments_df)
+    get_tweets_task()
 
 twitter_dag()

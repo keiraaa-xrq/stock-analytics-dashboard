@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from pendulum import datetime, duration
 from typing import *
 import snscrape.modules.twitter as sntwitter
 import pandas as pd
@@ -42,13 +42,13 @@ def get_tweets(user: str, start: datetime, end: datetime) -> pd.DataFrame:
 def get_tweets_n_min(
     end_time: datetime, 
     twitter_accounts: List[str] = TWITTER_ACCOUNTS, 
-    n_min: int = 30
+    n_min: int = 60
 ) -> pd.DataFrame:
     """
     Scrape tweets posted in the past n minutes from the list of twitter accounts.
     """
 
-    start_time = end_time - timedelta(minutes=n_min)
+    start_time = end_time - duration(minutes=n_min)
     tweet_dfs = []
     for ta in twitter_accounts:
         tweet_dfs.append(get_tweets(ta, start_time, end_time))
