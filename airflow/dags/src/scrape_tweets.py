@@ -6,7 +6,6 @@ import pandas as pd
 
 TWITTER_ACCOUNTS = [
     'CNBCtech',
-    'MarketWatch',
     'WSJmarkets',
     'YahooFinance',
     'FT',
@@ -40,9 +39,13 @@ def get_tweets(user: str, start: datetime, end: datetime) -> pd.DataFrame:
     return tweets_df
 
 
-def get_tweets_n_min(twitter_accounts: List[str], end_time: datetime, n_min: int = 30) -> pd.DataFrame:
+def get_tweets_n_min(
+    end_time: datetime, 
+    twitter_accounts: List[str] = TWITTER_ACCOUNTS, 
+    n_min: int = 30
+) -> pd.DataFrame:
     """
-    Scrape tweets posted in the past 30 minutes from the list of twitter accounts.
+    Scrape tweets posted in the past n minutes from the list of twitter accounts.
     """
 
     start_time = end_time - timedelta(minutes=n_min)
