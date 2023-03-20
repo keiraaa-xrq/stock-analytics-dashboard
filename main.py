@@ -9,7 +9,7 @@ ticker_list = ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA", "NVDA", "META", "AVGO", "
 
 def initialise_client():
     #Get Credentials and authenticate
-    key_path = "../is3107-grp18-e8944871c568.json" # use your own token
+    key_path = "./token/is3107-grp18-e8944871c568.json" # use your own token
     credentials = service_account.Credentials.from_service_account_file(
         key_path,
         scopes=["https://www.googleapis.com/auth/cloud-platform"],
