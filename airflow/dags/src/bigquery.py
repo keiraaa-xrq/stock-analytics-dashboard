@@ -1,6 +1,5 @@
 from google.cloud import bigquery
 from google.oauth2 import service_account
-import pandas_gbq
 import pandas as pd
 
 key_path = "airflow/dags/src/key/is3107-grp18-e8944871c568.json" # use your own token
