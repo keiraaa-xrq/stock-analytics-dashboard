@@ -1,4 +1,4 @@
-from pendulum import datetime, duration
+import pendulum
 from typing import *
 import snscrape.modules.twitter as sntwitter
 import pandas as pd
@@ -13,45 +13,42 @@ TWITTER_ACCOUNTS = [
     'markets' # bloomberg markets
 ]
 
-def preprocess(tweet: str):
-    """
-    Remove url and trailing whitespace
-    """
-    tokens = tweet.split()
-    tokens = tokens[:-1]
-    tweet = ' '.join(tokens)
-    return tweet
-
-
-def get_tweets(user: str, start: datetime, end: datetime) -> pd.DataFrame:
+def get_tweets(twitter_accounts: List[str], start_time: pendulum.DateTime, end_time: pendulum.DateTime) -> List[Dict]:
     """
     Return all tweets posted by the user during the time window.
     """
 
-    start, end = int(start.timestamp()), int(end.timestamp())
+    start, end = start_time.int_timestamp, end_time.int_timestamp
     tweets_list = []
-    for tweet in sntwitter.TwitterSearchScraper(f'from:{user} since:{start} until:{end} exclude:replies').get_items():
-        tweets_list.append([tweet.id, tweet.date, tweet.rawContent, tweet.url, tweet.user.username, tweet.retweetCount, tweet.likeCount, tweet.quoteCount])
-    tweets_df = pd.DataFrame(tweets_list, columns=['tweet_id', 'date', 'content', 'url', 'username', 'retweet_count', 'like_count', 'quote_count'])
-    # simple preprocessing
-    processed = tweets_df['content'].apply(preprocess).tolist()
-    tweets_df['content'] = processed
-    return tweets_df
+    for user in twitter_accounts:
+        try:
+            for tweet in sntwitter.TwitterSearchScraper(f'from:{user} since:{start} until:{end} exclude:replies').get_items():
+                tweets_list.append({
+                    'tweet_id': tweet.id, 
+                    'content': tweet.rawContent,
+                    # converting to str since datetime is not JSON serialisable
+                    'date': tweet.date.strftime(format='%Y-%m-%d %H:%M:%S%z'),  
+                    'url': tweet.url, 
+                    'username': tweet.user.username, 
+                    'retweet_count': tweet.retweetCount, 
+                    'like_count': tweet.likeCount, 
+                    'quote_count': tweet.quoteCount,
+                    'time_pulled': end_time.to_datetime_string() 
+                })
+        except Exception as e:
+            print(e)
+    return tweets_list
 
 
-def get_tweets_n_min(
-    end_time: datetime, 
+def get_tweets_n_min( 
+    end_time: pendulum.DateTime,
     twitter_accounts: List[str] = TWITTER_ACCOUNTS, 
     n_min: int = 60
-) -> pd.DataFrame:
+) -> List[Dict]:
     """
     Scrape tweets posted in the past n minutes from the list of twitter accounts.
     """
 
-    start_time = end_time - duration(minutes=n_min)
-    tweet_dfs = []
-    for ta in twitter_accounts:
-        tweet_dfs.append(get_tweets(ta, start_time, end_time))
-    tweets_df = pd.concat(tweet_dfs, ignore_index=True)
-    tweets_df['time_pulled'] = [end_time] * tweets_df.shape[0]
-    return tweets_df
+    start_time = end_time - pendulum.duration(minutes=n_min)
+    tweets_list = get_tweets(twitter_accounts, start_time, end_time)
+    return tweets_list

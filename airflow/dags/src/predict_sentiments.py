@@ -3,9 +3,10 @@ import re
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import pandas as pd
+import pendulum
 
 
-def process_tweets(tweet: str):
+def process_tweet(tweet: str):
     """
     Clean tweets before sentiment prediction.
     """
@@ -44,18 +45,34 @@ def transformer_predict(tweets: List[str], verbose: bool = False) -> List[int]:
     return preds
 
 
-def get_tweets_sentiment(
-    tweets_df: pd.DataFrame, 
-    id_col: str = 'tweet_id', 
-    time_col: str = 'time_pulled', 
-    text_col: str = 'content'
+def get_tweets_sentiments(
+    tweets_list: List[Dict], 
+    text_field: str = 'content',
+) -> List[int]:
+    """
+    Process tweets and predict sentiments.
+    """
+    tweets = []
+    for dic in tweets_list:
+        processed_t = process_tweet(dic[text_field])
+        tweets.append(processed_t)
+    sentiments = transformer_predict(tweets)
+    return sentiments
+
+
+def generate_tweets_df(
+    tweets_list: List['Dict'],
+    sentiments: List[int],
+    date_field: str = 'date',
+    time_pulled_field: str = 'time_pulled'
 ) -> pd.DataFrame:
     """
-    Return a dataframe of tweet ids, scraped time and corresponding sentiments.
+    Combine the scraped tweets and predicted sentiments into a dataframe.
     """
-    ids = tweets_df[id_col].tolist()
-    time = tweets_df[time_col].tolist()
-    tweets = tweets_df[text_col].apply(process_tweets).tolist()
-    sentiments = transformer_predict(tweets)
-    sentiments_df = pd.DataFrame({f'{id_col}': ids, f'{time_col}': time, 'sentiment': sentiments})
-    return sentiments_df
+    tweets_df = pd.DataFrame(tweets_list)
+    # append sentiments
+    tweets_df['sentiment'] = sentiments
+    # convert datetime string to datetime
+    tweets_df[date_field] = tweets_df[date_field].apply(lambda x: pendulum.parse(x))
+    tweets_df[time_pulled_field] = tweets_df[time_pulled_field].apply(lambda x: pendulum.parse(x))
+    return tweets_df
