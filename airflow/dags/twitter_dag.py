@@ -10,7 +10,7 @@ from src.bigquery import setup_client, load_dataframe_to_bigquery
     description='Twitter Data Pipeline',
     schedule='@hourly',
     start_date=pendulum.datetime(2023, 3, 25, 0, 0),
-    catchup=True
+    catchup=False
 )
 def twitter_dag():
 
