@@ -6,4 +6,4 @@ IS3107 Project
 3. Run `pip install -r requirements.txt` to install dependencies
 4. Run `export AIRFLOW_HOME=$(pwd)/airflow`
 5. Run `airflow db init` to initialise database
-6. Run `airflow webserver --port 8080 -D` to start webserver
+6. Run `airflow webserver --debug` to start webserver in debug mode
