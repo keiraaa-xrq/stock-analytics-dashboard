@@ -1,7 +1,6 @@
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import pandas as pd
-import pandas_gbq
 
 
 def setup_client(key_path: str) -> bigquery.Client:
