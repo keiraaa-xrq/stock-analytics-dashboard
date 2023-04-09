@@ -73,6 +73,6 @@ def generate_tweets_df(
     # append sentiments
     tweets_df['sentiment'] = sentiments
     # convert datetime string to datetime
-    tweets_df[date_field] = tweets_df[date_field].apply(lambda x: pendulum.parse(x))
-    tweets_df[time_pulled_field] = tweets_df[time_pulled_field].apply(lambda x: pendulum.parse(x))
+    tweets_df[date_field] = tweets_df[date_field].apply(lambda x: pendulum.from_timestamp(x))
+    tweets_df[time_pulled_field] = tweets_df[time_pulled_field].apply(lambda x: pendulum.from_timestamp(x))
     return tweets_df

@@ -1,29 +1,34 @@
 from typing import *
+import os
 import pendulum
 from airflow.decorators import dag, task
 import pandas as pd
-from src.reddit import get_all_tickers, generate_reddit_df
+from src.reddit import *
 from src.utils import get_key_file_name
-from src.big_query import setup_client, load_dataframe_to_bigquery
+from src.bigquery import setup_client, load_dataframe_to_bigquery
 
 @dag(
     description='Reddit Data Pipeline',
     schedule='@hourly',
-    start_date=pendulum.datetime(2023, 4, 2, 9, 5),
+    start_date=pendulum.datetime(2023, 4, 8, 0, 0, 0),
     catchup=False
 )
 def reddit_dag():
+
     @task
     def extract_reddit_task() -> List[Dict]:
-        data = get_all_tickers()
-        return data
+        os.environ['NO_PROXY'] = "URL"
+        reddit_posts = get_reddit_for_all_tickers()
+        return reddit_posts
     
     @task 
     def load_reddit_task(reddit_posts):
+        os.environ['NO_PROXY'] = "URL"
         key_file = get_key_file_name()
-        client = setup_client(f'../../key/{key_file}')
+        client = setup_client(f'./key/{key_file}')
         # load df to bigquery
-        table_id = f'{client.project}.Reddit.posts'
+        # TODO: replace with real table name
+        table_id = f'{client.project}.Reddit.Reddit_test'
         reddit_df = generate_reddit_df(reddit_posts)
         load_dataframe_to_bigquery(client, table_id, reddit_df)
 

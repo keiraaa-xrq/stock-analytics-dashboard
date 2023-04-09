@@ -42,11 +42,37 @@ def create_tweets_table(client):
     )
 
 
+def create_reddit_table(client):
+    # TODO: Change to real table name
+    table_id = f"{client.project}.Reddit.Reddit_test"
+    schema = [
+        bigquery.SchemaField("stock_ticker", "STRING"),
+        bigquery.SchemaField("subreddit", "STRING"),
+        bigquery.SchemaField("id", "STRING"),
+        bigquery.SchemaField("title", "STRING"),
+        bigquery.SchemaField("url", "STRING"),
+        bigquery.SchemaField("upvotes", "FLOAT"),
+        bigquery.SchemaField("num_comments", "FLOAT"),
+        bigquery.SchemaField("author", "STRING"),
+        bigquery.SchemaField("created_time", "TIMESTAMP"),
+    ]
+
+    table = bigquery.Table(table_id, schema=schema)
+    try:  
+        table = client.create_table(table)  # Make an API request.
+    except Exception as e:
+        print(e)
+    print(
+        "Created table {}.{}.{}".format(table.project, table.dataset_id, table.table_id)
+    )
+
+
 def setup_bigquery():
     key_file = get_key_file_name()
     client = setup_client(f'./key/{key_file}')
-    create_dataset(client, 'Twitter')
-    create_tweets_table(client)
+    # create_dataset(client, 'Twitter')
+    # create_tweets_table(client)
+    create_reddit_table(client)
 
 
 if __name__ == '__main__':

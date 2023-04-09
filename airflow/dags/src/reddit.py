@@ -2,77 +2,62 @@ import praw
 from typing import *
 import datetime as dt
 import pandas as pd
-reddit = praw.Reddit(client_id='Rlmvoi5snEil5RLoeCymJw',
-                        client_secret='oMmJOOfBMoCjtROy4WDOikhvCxF-zw',
-                        user_agent='foosh')
-headlines = set()
+import pendulum
 
-def get_reddit_post(stock_ticker):
-    subreddit_list = ['stocks','wallstreetbets','stockmarket','options']    
+reddit = praw.Reddit(
+    client_id='Rlmvoi5snEil5RLoeCymJw',
+    client_secret='oMmJOOfBMoCjtROy4WDOikhvCxF-zw',
+    user_agent='foosh'
+)
+# headlines = set()
 
-    list_of_columns = ['stock_ticker','subreddit','id','title','url','upvotes','comments','author','created_time']
-    df = pd.DataFrame(columns = list_of_columns)
-    stock_ticker_lists = []
-    subreddit_lists = []
-    id = []
-    title = []
-    url = []
-    upvotes = []
-    comments = []
-    author = []
-    created_time = []
-
+def get_reddit_post(stock_ticker: str) -> List[Dict[str, Any]]:
+    subreddit_list = ['stocks','wallstreetbets','stockmarket','options']
+    reddit_list = []
     for subreddit in subreddit_list:
-        praw = reddit.subreddit(subreddit)
-        posts = praw.search(stock_ticker, sort='all', time_filter='day')
+        try:
+            praw = reddit.subreddit(subreddit)
+            posts = praw.search(stock_ticker, sort='all', time_filter='day')
 
-        for submission in posts:
-            subreddit_lists.append(subreddit)
-            stock_ticker_lists.append(stock_ticker)
-            url.append(submission.url)
-            title.append(submission.title)
-            upvotes.append(submission.score)
-            comments.append(submission.num_comments)
-            author.append(submission.author.name)
-            id.append(submission.id)
-            created_time.append(submission.created_utc)
-        
-    df['stock_ticker'] = stock_ticker_lists
-    df['subreddit'] = subreddit_lists
-    df['id'] = id
-    df['title'] = title
-    df['url'] = url
-    df['upvotes'] = upvotes
-    df['comments'] = comments
-    df['author'] = author
-    df['created_time'] = created_time
-    
-    print(len(df))
-    return df
+            for submission in posts:
+                reddit_list.append({
+                    'stock_ticker': stock_ticker,
+                    'subreddit': subreddit,
+                    'id': submission.id,
+                    'title': submission.title,
+                    'url': submission.url,
+                    'upvotes': submission.score,
+                    'num_comments': submission.num_comments,
+                    'author': submission.author.name,
+                    'created_time': submission.created_utc # timestamp
+                })
+        except Exception as e:
+            print(e)
+    return reddit_list
 
 # top 30 US tech firms by market cap
 
-def get_all_tickers():
+def get_reddit_for_all_tickers() -> List[Dict[str, Any]]:
+    # TODO: replace with all tickers
     ticker_list = ["AAPL"]
     # "MSFT", "GOOG", "AMZN", "TSLA", "NVDA", "META", "AVGO", "ORCL", "CSCO", 
     # "CRM", "TXN", "ADBE", "NFLX", "QCOM", "AMD", "IBM", "INTU", "INTC", "AMAT",
     # "BKNG", "ADI", "ADP", "ServiceNow", "PYPL", "ABNB", "FISV", "LRCX", "UBER", "EQIX"]
 
-    output = pd.DataFrame()
+    reddit_all = []
     for ticker in ticker_list:
-        df = get_reddit_post(ticker)
-        print(ticker)
-        output = pd.concat([output,df])
+        print(f"Scraping Reddit for {ticker}.")
+        reddit_list = get_reddit_post(ticker)
+        print(f"Number of posts for {ticker}: {len(reddit_list)}")
+        reddit_all.extend(reddit_list)
     
-    output_columns = list(output.columns)
-    output_list = output.values.tolist()
-    output_list.insert(0,output_columns)
-    print(output_list)
-    return output_list
+    print(f"Total number of posts: {len(reddit_all)}")
+    return reddit_all
 
-def generate_reddit_df(reddit_posts):
-    reddit_df = pd.DataFrame(reddit_posts[1:], columns=reddit_posts[0])
+def generate_reddit_df(reddit_posts: List[Dict[str, Any]]) -> pd.DataFrame:
+    reddit_df = pd.DataFrame(reddit_posts)
     reddit_df['stock_ticker'] = reddit_df['stock_ticker'].replace('ServiceNow','NOW')
+    reddit_df['created_time'] = reddit_df['created_time'].apply(lambda x: pendulum.from_timestamp(x))
     return reddit_df
 
 
