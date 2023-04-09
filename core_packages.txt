@@ -8,4 +8,4 @@ dash-bootstrap-components==1.4.1
 transformers==4.27.1
 torch==2.0.0
 google-cloud-bigquery==3.7.0
-apache-airflow==2.5.2
+apache-airflow==2.5.0

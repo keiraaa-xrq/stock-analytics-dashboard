@@ -17,7 +17,7 @@ def get_tweets(twitter_accounts: List[str], start_time: pendulum.DateTime, end_t
     """
     Return all tweets posted by the user during the time window.
     """
-
+    print("Start scraping tweets.")
     start, end = start_time.int_timestamp, end_time.int_timestamp
     tweets_list = []
     for user in twitter_accounts:
@@ -37,6 +37,7 @@ def get_tweets(twitter_accounts: List[str], start_time: pendulum.DateTime, end_t
                 })
         except Exception as e:
             print(e)
+    print("Completed scraping tweets.")
     return tweets_list
 
 
