@@ -17,7 +17,7 @@ def get_reddit_post(stock_ticker: str) -> List[Dict[str, Any]]:
     for subreddit in subreddit_list:
         try:
             praw = reddit.subreddit(subreddit)
-            posts = praw.search(stock_ticker, sort='all', time_filter='day')
+            posts = praw.search(stock_ticker, sort='all', time_filter='hour')
 
             for submission in posts:
                 if submission.url[-3:] == "jpg" or submission.url[-3:] == "png":
