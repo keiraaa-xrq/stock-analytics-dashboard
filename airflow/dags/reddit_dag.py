@@ -10,7 +10,7 @@ from src.bigquery import setup_client, load_dataframe_to_bigquery
 @dag(
     description='Reddit Data Pipeline',
     schedule='@hourly',
-    start_date=pendulum.datetime(2023, 4, 8, 0, 0, 0),
+    start_date=pendulum.datetime(2023, 4, 9, 0, 0, 0),
     catchup=False
 )
 def reddit_dag():
@@ -28,7 +28,7 @@ def reddit_dag():
         client = setup_client(f'./key/{key_file}')
         # load df to bigquery
         # TODO: replace with real table name
-        table_id = f'{client.project}.Reddit.Reddit_test'
+        table_id = f'{client.project}.Reddit.posts'
         reddit_df = generate_reddit_df(reddit_posts)
         load_dataframe_to_bigquery(client, table_id, reddit_df)
 

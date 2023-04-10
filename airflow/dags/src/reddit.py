@@ -20,6 +20,8 @@ def get_reddit_post(stock_ticker: str) -> List[Dict[str, Any]]:
             posts = praw.search(stock_ticker, sort='all', time_filter='day')
 
             for submission in posts:
+                if submission.url[-3:] == "jpg" or submission.url[-3:] == "png":
+                    continue
                 reddit_list.append({
                     'stock_ticker': stock_ticker,
                     'subreddit': subreddit,
@@ -39,10 +41,10 @@ def get_reddit_post(stock_ticker: str) -> List[Dict[str, Any]]:
 
 def get_reddit_for_all_tickers() -> List[Dict[str, Any]]:
     # TODO: replace with all tickers
-    ticker_list = ["AAPL"]
-    # "MSFT", "GOOG", "AMZN", "TSLA", "NVDA", "META", "AVGO", "ORCL", "CSCO", 
-    # "CRM", "TXN", "ADBE", "NFLX", "QCOM", "AMD", "IBM", "INTU", "INTC", "AMAT",
-    # "BKNG", "ADI", "ADP", "ServiceNow", "PYPL", "ABNB", "FISV", "LRCX", "UBER", "EQIX"]
+    ticker_list = ["AAPL","MSFT", "GOOG",
+    "AMZN", "TSLA", "NVDA", "META", "AVGO", "ORCL", "CSCO", 
+    "CRM", "TXN", "ADBE", "NFLX", "QCOM", "AMD", "IBM", "INTU", "INTC", "AMAT",
+    "BKNG", "ADI", "ADP", "ServiceNow", "PYPL", "ABNB", "FISV", "LRCX", "UBER", "EQIX"]
 
     reddit_all = []
     for ticker in ticker_list:
@@ -56,8 +58,9 @@ def get_reddit_for_all_tickers() -> List[Dict[str, Any]]:
 
 def generate_reddit_df(reddit_posts: List[Dict[str, Any]]) -> pd.DataFrame:
     reddit_df = pd.DataFrame(reddit_posts)
-    reddit_df['stock_ticker'] = reddit_df['stock_ticker'].replace('ServiceNow','NOW')
-    reddit_df['created_time'] = reddit_df['created_time'].apply(lambda x: pendulum.from_timestamp(x))
+    if len(reddit_df)!=0:
+        reddit_df['stock_ticker'] = reddit_df['stock_ticker'].replace('ServiceNow','NOW')
+        reddit_df['created_time'] = reddit_df['created_time'].apply(lambda x: pendulum.from_timestamp(x))
     return reddit_df
 
 
