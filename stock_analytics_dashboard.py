@@ -30,7 +30,9 @@ def retrieve_reddit_posts():
     """
 
     reddit_data = client.query(reddit_query).to_dataframe()
-    reddit_data["created_time"] = reddit_data["created_time"].apply(lambda x: datetime.utcfromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
+    reddit_data["created_time"] = pd.to_datetime(reddit_data["created_time"])
+    reddit_data["created_time"] = reddit_data["created_time"].apply(lambda x: x-timedelta(hours=4))  # Converting from UTC to GMT-4
+    reddit_data["created_time"] = reddit_data["created_time"].apply(lambda x: datetime.strftime(x, "%Y-%m-%d"))
     reddit_data = reddit_data[["stock_ticker","title","subreddit","url","upvotes","created_time"]]   # store the relevant columns only
     return reddit_data
 
