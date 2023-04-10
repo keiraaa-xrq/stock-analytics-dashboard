@@ -10,34 +10,89 @@ import plotly.graph_objects as go
 import colorlover as cl
 import pandas as pd
 import numpy as np
-from datetime import datetime
-import time
+from datetime import datetime, timedelta
+from google.cloud import bigquery
+from google.oauth2 import service_account
 
 import warnings
 warnings.filterwarnings("ignore")
 
 ##### Connect to data source #####
     
-def retrieve_reddit_posts():
-    posts = pd.read_csv("sample_data/reddit.csv")
-    posts["created_time"] = posts["created_time"].apply(lambda x: datetime.utcfromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
-    return posts
+credentials = service_account.Credentials.from_service_account_file('service_account_key.json')
+project_id = "is3107-grp18"
+client = bigquery.Client(credentials=credentials, project=project_id)
 
-def retrieve_stock_prices():
-    stocks = pd.read_csv("sample_data/stocks.csv")
-    stocks["Datetime"] = pd.to_datetime(stocks["Datetime"])
-    return stocks
+def retrieve_reddit_posts():
+    reddit_query = """
+    SELECT * 
+    FROM Reddit.posts
+    """
+
+    reddit_data = client.query(reddit_query).to_dataframe()
+    reddit_data["created_time"] = reddit_data["created_time"].apply(lambda x: datetime.utcfromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S'))
+    reddit_data = reddit_data[["stock_ticker","title","subreddit","url","upvotes","created_time"]]   # store the relevant columns only
+    return reddit_data
+
+def retrieve_stock_prices(stock_ticker):
+    stock_query = """
+    SELECT * 
+    FROM Yahoo.{}
+    """.format(stock_ticker)
+    
+    stock_data = client.query(stock_query).to_dataframe()
+    stock_data["Datetime"] = pd.to_datetime(stock_data["Datetime"])
+    stock_data["Datetime"] = stock_data["Datetime"].apply(lambda x: x-timedelta(hours=4))   # Converting from UTC to GMT-4 (DELETE ONCE ADJUSTED)
+
+    stock_data.sort_values(by="Datetime", ascending=True, inplace=True)  # need to arrange in ascending order to compute SMA
+    sma = stock_data["Close"].rolling(window=20).mean()  # compute SMA, "window = 20" refers to 20-period MA
+    stock_data["SMA"] = sma
+    return stock_data
 
 def retrieve_sentiments():
-    sentiments = pd.read_csv("sample_data/sentiment_aggregate.csv")
-    sentiments["datetime"] = pd.to_datetime(sentiments["datetime"])
+    twitter_query = """
+    SELECT * 
+    FROM Twitter.Tweets
+    """
+
+    twitter_data = client.query(twitter_query).to_dataframe()
+    twitter_data = twitter_data[["tweet_id", "date", "sentiment"]]
+    twitter_data["date"] = pd.to_datetime(twitter_data["date"])
+    twitter_data["date"] = twitter_data['date'].dt.to_period('H')  # "Round off" each data point to the nearest hour
+    
+    twitter_data_agg = twitter_data.groupby(["date", "sentiment"]).size().to_frame("count")  # aggregate the data by date and sentiment
+    twitter_data_agg.reset_index(inplace=True)
+
+    twitter_data_agg_pivot = twitter_data_agg.pivot(index='date', columns='sentiment', values='count')  # pivot the dataframe to the desired shape
+    twitter_data_agg_pivot.reset_index(inplace=True)
+    twitter_data_agg_pivot.fillna(0, inplace=True)
+    
+    twitter_data_agg_pivot = twitter_data_agg_pivot.rename_axis(None, axis=1).reset_index(drop=True)  
+    twitter_data_agg_pivot.rename(columns={"date":"datetime", -1:"num_neg", 0:"num_neu", 1:"num_pos"}, inplace=True)
+    twitter_data_agg_pivot[["num_neg","num_neu","num_pos"]] = twitter_data_agg_pivot[["num_neg","num_neu","num_pos"]].astype(int)
+    twitter_data_agg_pivot.sort_values(by="datetime", ascending=False, inplace=True)
+
+    ### for testing purposes (due to lack of continuity in the time data) ###
+    timepoints = []
+    start = datetime(2023, 4, 7, 12, 0)
+    for i in range(twitter_data_agg_pivot.shape[0]):
+        timepoint = start - timedelta(hours=i)
+        timepoints.append(timepoint)
+    twitter_data_agg_pivot["datetime"] = timepoints
+    ### 
+
+    sentiments = twitter_data_agg_pivot
     return sentiments
+
+    # sentiments = pd.read_csv("sample_data/sentiment_aggregate.csv")
+    # sentiments["datetime"] = pd.to_datetime(sentiments["datetime"])
+    # return sentiments
 
 
 ##### Additional Helper Functions (Mainly for Reddit Feed) #####
 
 def generate_markdown_string(i, title, subreddit, url, upvotes, created_time):
-    return "{}. [{}]({}) \n | **r/{}** | Upvotes: {} | _{}_ \n".format(i, title, url, subreddit, upvotes, created_time)
+    return "{}. [{}]({}) \n | **r/{}** | Upvotes: {} | _{}_ \n".format(i, title, url, subreddit, int(upvotes), created_time)
 
 def top_n_reddit_posts(df, n):    
     markdown = "### Latest Reddit Posts 📈 \n --- \n"   # Header
@@ -59,24 +114,28 @@ def generate_twitter_widget(twitter_id):
     return html.Iframe(
                 srcDoc='''
                     <a class="twitter-timeline" data-theme="dark" href="https://twitter.com/{}">
-                        Financial Tweets
+                        Loading @{}...
                     </a> 
                     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-                '''.format(twitter_id),
-                height=400,
-                width=500,
+                '''.format(twitter_id, twitter_id),
+                # height=400,
+                # width=500,
+                style={"width": "100%", "height":"400px"},
             )
 
-def generate_reddit_feed(df, stock_ticker, length=5):
+def generate_reddit_feed(df, stock_ticker, n=5):  # set n to 5 as default (due to sizing/aesthetics)
     df_filtered = df[df["stock_ticker"] == stock_ticker]
     df_filtered.sort_values(by="created_time", ascending=False, inplace=True)
 
-    reddit_markdown = top_n_reddit_posts(df_filtered, length)  # set to 5 as default (due to sizing/aesthetics)
+    length = min(n, df_filtered.shape[0])  # in case there is less than n number of related posts
+    reddit_markdown = top_n_reddit_posts(df_filtered, length)  
 
     return dbc.Card(
         dbc.CardBody([
             dcc.Markdown(children=reddit_markdown)
-        ]),
+        ],
+        style={"height":"400px"}
+        ),
         color="light",
     )
 
@@ -139,9 +198,9 @@ def generate_sentiment_chart(df, normalize=False, period=8, show_neutral=True):
 
     return sentiment_chart
 
-def generate_price_chart(df, stock_ticker, days=2):
+def generate_price_chart(df, stock_ticker, days=3):
 
-    df_filtered = df[df["Stock Ticker"] == stock_ticker]
+    df_filtered = df
     df_filtered.sort_values(by="Datetime", ascending=False, inplace=True)
     df_filtered_recent = df_filtered.iloc[:days*78]  # each day has 78 data points (5-min intervals), show 2 days worth by default
     price_chart = go.Figure(go.Candlestick(
@@ -151,7 +210,19 @@ def generate_price_chart(df, stock_ticker, days=2):
         low = df_filtered_recent['Low'],
         close = df_filtered_recent['Close'],
         ))
-    price_chart.update_layout(title="Price Chart of ${}".format(stock_ticker))
+    # Add SMA Line Chart
+    price_chart.add_trace(
+        go.Scatter(
+            x = df_filtered_recent["Datetime"],
+            y = df_filtered_recent["SMA"],
+            line = dict(color='#9925be', width=1),
+            name = "20-period SMA",
+            )
+        )
+    price_chart.update_layout(
+    	title="Price Chart of ${}".format(stock_ticker),
+    	showlegend=False,
+    	)
 
     # hide outside trading hours and weekends
     price_chart.update_xaxes(
@@ -162,19 +233,21 @@ def generate_price_chart(df, stock_ticker, days=2):
                 # dict(values=["2019-12-25", "2020-12-24"])  # hide holidays (Christmas and New Year's, etc)
             ]
         )
+
     return price_chart
 
 
 ##### Charts & Widgets #####
 
-# Load Data
-reddit_df = retrieve_reddit_posts()
-sentiment_df = retrieve_sentiments()
-price_df = retrieve_stock_prices()
 
 # Let $AAPL and @WSJMarkets be the default selection (Think of it as initializing the dashboard)
 default_query = "AAPL"
 default_twitter_id = "WSJMarkets"
+
+# Load Data
+reddit_df = retrieve_reddit_posts()
+sentiment_df = retrieve_sentiments()
+price_df = retrieve_stock_prices(default_query)
 
 # Twitter Widget  <-- not sure how to display tweets from different twitter accounts
 twitter_widget = generate_twitter_widget(default_twitter_id)
@@ -203,8 +276,9 @@ such as:
  - Embedded Twitter Feed
 '''
 
-list_of_stocks = list(price_df["Stock Ticker"].unique())
-
+stock_dataset_id = "Yahoo"
+stock_tables = client.list_tables(stock_dataset_id)
+list_of_stocks = [stock_table.table_id for stock_table in stock_tables]
 
 
 ### App Layout ###
@@ -275,20 +349,33 @@ app.layout = html.Div([
         align="center",
         justify="center",
         ),
+    
+##### Loading Element #####
+    dbc.Row([
+        dcc.Loading(
+            id="loading-1",
+            type="circle",
+            children=html.Div(id="loading-output-1"),
+            fullscreen=True,
+            style={"background": "rgba(0,0,0,0.2)"}
+        ),
+        ]),
+##########################    
     ])
 
 
 # Stock Ticker Selection
 @app.callback(
     [Output(component_id="price-chart", component_property="figure"),
-    Output(component_id="reddit-feed", component_property="children"),],
+    Output(component_id="reddit-feed", component_property="children"),
+    Output(component_id="loading-output-1", component_property="children")],
     [Input(component_id="stock-ticker", component_property="value")],
     )
 def update_charts(new_ticker):
-    new_price_chart = generate_price_chart(price_df, new_ticker)
+    new_price_df = retrieve_stock_prices(new_ticker)
+    new_price_chart = generate_price_chart(new_price_df, new_ticker)
     new_reddit_feed = generate_reddit_feed(reddit_df, new_ticker)
-    time.sleep(0.5)  # added a lag time so it's obvious that the dashboard loaded new charts
-    return [new_price_chart, new_reddit_feed]
+    return [new_price_chart, new_reddit_feed, None]
 
 # Twitter Widget Selection
 @app.callback(
