@@ -1,6 +1,7 @@
 from airflow import DAG
 from airflow.decorators import dag, task
 from datetime import datetime
+import os
 from src.big_query import setup_client, load_dataframe_to_bigquery
 from src.transform import transform_stock_df, check_validity
 import yfinance as yf
@@ -24,14 +25,14 @@ default_args = {
     schedule_interval='*/30 * * * *',
     start_date=datetime(2023, 1, 1),
     catchup=False,
-    tags=['stock'],
-    max_active_tasks=10,
-    concurrency=10
+    tags=['stock']
 )
 def yahoo_api():
+
     @task
     def load_stock_data(ticker, **kwargs): 
         ti = kwargs['ti']
+        os.environ['NO_PROXY'] = "URL"  # for Mac OS
         print("\n#####" + ticker + "#####\n")
 
         data = yf.download(tickers=ticker, period='30m', interval='5m')

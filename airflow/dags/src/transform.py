@@ -7,7 +7,6 @@ def transform_stock_df(
         stock_df: pd.DataFrame
     ) -> pd.DataFrame:
     stock_df = stock_df.rename(columns={"Adj Close": "Adj_Close"})
-    # data['Datetime'] = data.index.tz_convert('America/New_York')
     stock_df['Datetime'] = stock_df.index
     stock_df = stock_df.reset_index(drop=True)
     return stock_df
