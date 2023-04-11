@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.decorators import dag, task
 from datetime import datetime
 import os
+import pendulum
 from src.big_query import setup_client, load_dataframe_to_bigquery
 from src.transform import transform_stock_df, check_validity
 import yfinance as yf
@@ -13,6 +14,7 @@ ticker_list = ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA", "NVDA", "META", "AVGO", "
 dataset_id="Yahoo_test.{}"
 TOKEN_PATH = "token/is3107-grp18-e8944871c568.json" # use your own token
 client = setup_client(TOKEN_PATH)
+local_tz = pendulum.timezone("America/New_York")
 
 default_args = {
     'owner':'airflow',
@@ -22,8 +24,8 @@ default_args = {
     'yahoo_api_dag', 
     default_args=default_args, 
     description='Get stock price data',
-    schedule_interval='*/30 * * * *',
-    start_date=datetime(2023, 1, 1),
+    schedule_interval='*/30 * * * MON-FRI',
+    start_date=datetime(2023, 1, 1, tzinfo=local_tz),
     catchup=False,
     tags=['stock']
 )
