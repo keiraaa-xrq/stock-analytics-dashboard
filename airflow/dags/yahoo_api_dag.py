@@ -24,7 +24,7 @@ default_args = {
     'yahoo_api_dag', 
     default_args=default_args, 
     description='Get stock price data',
-    schedule_interval='*/30 * * * MON-FRI',
+    schedule_interval='*/30 9-16 * * MON-FRI',
     start_date=datetime(2023, 1, 1, tzinfo=local_tz),
     catchup=False,
     tags=['stock']
@@ -41,7 +41,8 @@ def yahoo_api():
         stock_df = transform_stock_df(data)
         
         table_id = dataset_id.format(ticker)
-        if check_validity(client, table_id, stock_df):
+        isValid, stock_df = check_validity(client, table_id, stock_df)
+        if isValid:
             load_dataframe_to_bigquery(client, table_id, stock_df)
 
     for ticker in ticker_list:
