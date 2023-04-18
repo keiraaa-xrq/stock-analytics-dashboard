@@ -169,7 +169,7 @@ def generate_sentiment_chart(df, normalize=False, period=8, show_neutral=True):
     
     sentiment_chart.update_layout(
         barmode = "relative",
-        title = "General Market Sentiment",
+        title = "General Market Sentiment (Hourly)",
         legend = dict(yanchor="top",y=0.99, xanchor="left", x=0.01)
     )
 
@@ -207,7 +207,7 @@ def generate_price_chart(df, stock_ticker, days=3):
             )
         )
     price_chart.update_layout(
-    	title="Price Chart of ${}".format(stock_ticker),
+    	title="Price Chart of ${} (3-day)".format(stock_ticker),
     	showlegend=False,
     	)
 
@@ -257,10 +257,10 @@ description = '''
 Our dashboard is one-stop platform for in-depth insights into the performance \
 of various stocks. Our dashboard provides real-time information through features \
 such as: 
- - Historical Price Chart
- - Daily Sentiment Analysis
- - Embedded Reddit Feed
+ - Historical Stock Price Chart
+ - Market Sentiment Analysis
  - Embedded Twitter Feed
+ - Related Reddit Posts
 '''
 
 stock_dataset_id = "Yahoo"
