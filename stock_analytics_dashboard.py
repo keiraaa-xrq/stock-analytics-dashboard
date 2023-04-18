@@ -7,7 +7,6 @@ from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
-import colorlover as cl
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -44,7 +43,7 @@ def retrieve_stock_prices(stock_ticker):
     
     stock_data = client.query(stock_query).to_dataframe()
     stock_data["Datetime"] = pd.to_datetime(stock_data["Datetime"])
-    stock_data["Datetime"] = stock_data["Datetime"].apply(lambda x: x-timedelta(hours=4))   # Converting from UTC to GMT-4 (DELETE ONCE ADJUSTED)
+    stock_data["Datetime"] = stock_data["Datetime"].apply(lambda x: x-timedelta(hours=4))   # Converting from UTC to GMT-4
 
     stock_data.sort_values(by="Datetime", ascending=True, inplace=True)  # need to arrange in ascending order to compute SMA
     sma = stock_data["Close"].rolling(window=20).mean()  # compute SMA, "window = 20" refers to 20-period MA
@@ -60,8 +59,9 @@ def retrieve_sentiments():
     twitter_data = client.query(twitter_query).to_dataframe()
     twitter_data = twitter_data[["tweet_id", "date", "sentiment"]]
     twitter_data["date"] = pd.to_datetime(twitter_data["date"])
-    twitter_data["date"] = twitter_data['date'].dt.to_period('H')  # "Round off" each data point to the nearest hour
-    
+    twitter_data["date"] = twitter_data["date"].dt.strftime('%Y-%m-%d %H')  # "Round off" each data point to the nearest hour
+    twitter_data["date"] = pd.to_datetime(twitter_data["date"])
+
     twitter_data_agg = twitter_data.groupby(["date", "sentiment"]).size().to_frame("count")  # aggregate the data by date and sentiment
     twitter_data_agg.reset_index(inplace=True)
 
@@ -74,21 +74,8 @@ def retrieve_sentiments():
     twitter_data_agg_pivot[["num_neg","num_neu","num_pos"]] = twitter_data_agg_pivot[["num_neg","num_neu","num_pos"]].astype(int)
     twitter_data_agg_pivot.sort_values(by="datetime", ascending=False, inplace=True)
 
-    ### for testing purposes (due to lack of continuity in the time data) ###
-    timepoints = []
-    start = datetime(2023, 4, 7, 12, 0)
-    for i in range(twitter_data_agg_pivot.shape[0]):
-        timepoint = start - timedelta(hours=i)
-        timepoints.append(timepoint)
-    twitter_data_agg_pivot["datetime"] = timepoints
-    ### 
-
     sentiments = twitter_data_agg_pivot
     return sentiments
-
-    # sentiments = pd.read_csv("sample_data/sentiment_aggregate.csv")
-    # sentiments["datetime"] = pd.to_datetime(sentiments["datetime"])
-    # return sentiments
 
 
 ##### Additional Helper Functions (Mainly for Reddit Feed) #####
@@ -120,8 +107,6 @@ def generate_twitter_widget(twitter_id):
                     </a> 
                     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
                 '''.format(twitter_id, twitter_id),
-                # height=400,
-                # width=500,
                 style={"width": "100%", "height":"400px"},
             )
 
@@ -204,7 +189,7 @@ def generate_price_chart(df, stock_ticker, days=3):
 
     df_filtered = df
     df_filtered.sort_values(by="Datetime", ascending=False, inplace=True)
-    df_filtered_recent = df_filtered.iloc[:days*78]  # each day has 78 data points (5-min intervals), show 2 days worth by default
+    df_filtered_recent = df_filtered.iloc[:days*78]  # each day has 78 data points (5-min intervals), show 3 days worth by default
     price_chart = go.Figure(go.Candlestick(
         x = df_filtered_recent['Datetime'],
         open = df_filtered_recent['Open'],
