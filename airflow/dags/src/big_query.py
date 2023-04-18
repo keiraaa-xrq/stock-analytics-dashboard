@@ -31,9 +31,8 @@ def run_sql_bigquery(
         table_id: str, 
         query: str
     ):
-    print("#######" + table_id + "#######")
     query_string = query.format(table_id)
     print(query_string)
     query_job = client.query(query_string)
-    df = query_job.result()
-    return df.to_dataframe()
+    result = query_job.result()
+    return result.to_dataframe()
