@@ -425,66 +425,7 @@ app.layout = html.Div([
         align="center",
         justify="center",
         ),    
-    # dbc.Row([
-    #     dbc.Col(
-    #         dbc.Card(
-    #             dbc.CardBody([
-    #                 dcc.Markdown(children=description),
-    #                 html.Br(),
-    #                 html.B(children="Stock Ticker:"),
-    #                 dcc.Dropdown(
-    #                     id="stock-ticker",
-    #                     options=list_of_stocks,
-    #                     value=list_of_stocks[0],  # Assume to be $AAPL
-    #                     ),
-    #                 html.Br(),
-    #                 ])
-    #             ),
-    #         width={"size":3},
-    #         ),
-    #     dbc.Col([
-    #         dcc.Dropdown(
-    #             id="twitter-acc",
-    #             options=["WSJmarkets", "YahooFinance", "CNBCtech", "IBDinvestors", "FT", "markets"],
-    #             value="WSJmarkets",  # Assume to be $AAPL
-    #             ),
-    #         html.Div(
-    #             id="twitter-widget",
-    #             children=twitter_widget,
-    #             ),
-    #         ],
-    #         width={"size":4},
-    #         ),
-    #     dbc.Col(
-    #         html.Div(
-    #             id="reddit-feed",
-    #             children=reddit_feed,
-    #             ),
-    #         width={"size":4},
-    #         ),
-    #     ],
-    #     align="center",
-    #     justify="center",
-    #     ),
-    # dbc.Row([
-    #     dbc.Col(
-    #         dcc.Graph(
-    #             id="sentiment-bar-chart",
-    #             figure=sentiment_chart,
-    #             ),
-    #         width={"size":4},
-    #         ),
-    #     dbc.Col(
-    #         dcc.Graph(
-    #             id="price-chart",
-    #             figure=price_chart,
-    #             ),
-    #         width={"size":7}
-    #         ),
-    #     ],
-    #     align="center",
-    #     justify="center",
-    #     ),
+        
     
 ##### Loading Element #####
     dbc.Row([
