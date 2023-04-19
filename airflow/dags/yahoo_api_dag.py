@@ -3,14 +3,11 @@ from airflow.decorators import dag, task
 import pandas as pd
 from datetime import datetime
 import os
-import json
 import time
 import pendulum
 from src.big_query import setup_client, load_dataframe_to_bigquery
-from src.transform import transform_stock_df, check_validity, query_table_time
+from src.transform_yahoo import transform_stock_df, check_validity, query_table_time
 import yfinance as yf
-
-os.environ['NO_PROXY'] = "URL"  # for Mac OS
 
 # top 30 US tech firms by market cap
 ticker_list = ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA", "NVDA", "META", "AVGO", "ORCL", "CSCO", 
@@ -42,11 +39,13 @@ def yahoo_api():
 
     @task(max_active_tis_per_dag=10)
     def extract_stock_data(ticker):
+        os.environ['NO_PROXY'] = "URL"  # for Mac OS
         data = yf.download(tickers=ticker, period='30m', interval='5m')
         return data.to_json(orient='index', date_format='iso', date_unit='s')
 
     @task(max_active_tis_per_dag=10)
     def transform_stock_data(stock_json: str):
+        os.environ['NO_PROXY'] = "URL"  # for Mac OS
         stock_df = pd.read_json(stock_json, orient='index')
         print(stock_df)
 
@@ -60,6 +59,7 @@ def yahoo_api():
     
     @task(max_active_tis_per_dag=10)
     def load_stock_data(ticker, stock_json_transformed: str): 
+        os.environ['NO_PROXY'] = "URL"  # for Mac OS
         stock_data = pd.read_json(stock_json_transformed, orient='records')
 
         table_id = dataset_id.format(ticker)
