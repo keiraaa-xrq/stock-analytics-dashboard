@@ -28,7 +28,7 @@ def reddit_dag():
         client = setup_client(f'./key/{key_file}')
         # load df to bigquery
         # TODO: replace with real table name
-        table_id = f'{client.project}.Reddit.posts'
+        table_id = f'{client.project}.Data.Reddit'
         reddit_df = generate_reddit_df(reddit_posts)
         load_dataframe_to_bigquery(client, table_id, reddit_df)
 
