@@ -119,13 +119,13 @@ def generate_company_profile(df, stock_ticker):  # remove `ticker`, `name`, `upd
 
     # Company Metrics
     market_cap = "$"+str(round(df_filtered_latest["market_cap"]/1000000000, 2))+"B" 
-    beta = round(df_filtered_latest["beta"], 2)  
+    beta = str(round(df_filtered_latest["beta"], 2))
     dividend_yield = str(round(df_filtered_latest["dividend_yield"]*100, 5)) + "%"
-    peg_ratio = round(df_filtered_latest["peg_ratio"], 2)
-    trailing_pe = round(df_filtered_latest["trailing_pe"], 2)
-    trailing_eps = round(df_filtered_latest["trailing_eps"], 2)
-    forward_pe = round(df_filtered_latest["forward_pe"], 2)
-    forward_eps = round(df_filtered_latest["forward_eps"], 2)
+    peg_ratio = str(round(df_filtered_latest["peg_ratio"], 2))
+    trailing_pe = str(round(df_filtered_latest["trailing_pe"], 2))
+    trailing_eps = str(round(df_filtered_latest["trailing_eps"], 2))
+    forward_pe = str(round(df_filtered_latest["forward_pe"], 2))
+    forward_eps = str(round(df_filtered_latest["forward_eps"], 2))
     earnings_quarterly_growth = str(round(df_filtered_latest["earnings_quarterly_growth"]*100, 2)) + "%"
     earnings_annual_growth = str(round(df_filtered_latest["earnings_annual_growth"]*100, 2)) + "%"
 
@@ -366,7 +366,7 @@ app.layout = html.Div([
         dbc.Col(
             html.Div(
                 id="company-profile",
-                children=company_profile
+                children=company_profile,
                 ),
             width={"size":7},
             ),
@@ -425,8 +425,8 @@ app.layout = html.Div([
         align="center",
         justify="center",
         ),    
-        
-    
+
+
 ##### Loading Element #####
     dbc.Row([
         dcc.Loading(
