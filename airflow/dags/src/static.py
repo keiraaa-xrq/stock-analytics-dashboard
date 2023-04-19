@@ -8,5 +8,7 @@ TWITTER_ACCOUNTS = [
     'YahooFinance',
     'FT',
     'IBDinvestors',
-    'markets' # bloomberg markets
+    'markets', # bloomberg markets
+    'barronsonline',
+    'business',
 ]

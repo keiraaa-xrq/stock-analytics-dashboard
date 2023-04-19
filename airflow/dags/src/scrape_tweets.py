@@ -2,7 +2,7 @@ import pendulum
 from typing import *
 import snscrape.modules.twitter as sntwitter
 import pandas as pd
-from static import TWITTER_ACCOUNTS
+from .static import TWITTER_ACCOUNTS
 
 
 def get_tweets(twitter_accounts: List[str], start_time: pendulum.DateTime, end_time: pendulum.DateTime) -> List[Dict]:
@@ -18,14 +18,14 @@ def get_tweets(twitter_accounts: List[str], start_time: pendulum.DateTime, end_t
                 tweets_list.append({
                     'tweet_id': tweet.id, 
                     'content': tweet.rawContent,
-                    # converting to str since datetime is not JSON serialisable
-                    'date': tweet.date.strftime(format='%Y-%m-%d %H:%M:%S%z'),  
+                    # converting to timestamp since datetime is not JSON serialisable
+                    'date': tweet.date.timestamp(),  
                     'url': tweet.url, 
                     'username': tweet.user.username, 
                     'retweet_count': tweet.retweetCount, 
                     'like_count': tweet.likeCount, 
                     'quote_count': tweet.quoteCount,
-                    'time_pulled': end_time.to_datetime_string() 
+                    'time_pulled': end 
                 })
         except Exception as e:
             print(e)

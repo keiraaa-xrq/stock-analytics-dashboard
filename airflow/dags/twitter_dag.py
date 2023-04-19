@@ -3,7 +3,7 @@ import os
 import pendulum
 from airflow.decorators import dag, task
 from src.scrape_tweets import get_tweets_n_min
-from src.predict_sentiments import get_tweets_sentiments, generate_tweets_df
+from src.transform_tweets import get_tweets_sentiments, generate_tweets_df
 from src.utils import get_key_file_name
 from src.bigquery import setup_client, load_dataframe_to_bigquery
 
@@ -41,7 +41,7 @@ def twitter_dag():
             return []
 
     @task
-    def load_tweets_task(tweets_list: List['Dict'], sentiments: List[int]):
+    def load_tweets_task(tweets_list: List[Dict], sentiments: List[int]):
         """
         Load tweets and sentiments to bigquery.
         """
@@ -53,7 +53,7 @@ def twitter_dag():
             key_file = get_key_file_name()
             client = setup_client(f'./key/{key_file}')
             # load df to bigquery
-            table_id = f'{client.project}.Twitter.Tweets'
+            table_id = f'{client.project}.Data.Twitter'
             load_dataframe_to_bigquery(client, table_id, tweets_df)
 
         
