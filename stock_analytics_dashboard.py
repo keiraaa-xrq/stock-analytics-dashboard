@@ -83,8 +83,8 @@ def retrieve_sentiments():
 def generate_markdown_string(i, title, subreddit, url, upvotes, created_time):
     return "{}. [{}]({}) \n | **r/{}** | Upvotes: {} | _{}_ \n".format(i, title, url, subreddit, int(upvotes), created_time)
 
-def top_n_reddit_posts(df, n):    
-    markdown = "### Latest Reddit Posts 📈 \n --- \n"   # Header
+def top_n_reddit_posts(df, n, ticker_name):    
+    markdown = "### Latest Reddit Posts (${}) 📈 \n --- \n".format(ticker_name)   # Header
     for i in range(n):
         post = df.iloc[i]
         title = post["title"]
@@ -115,7 +115,7 @@ def generate_reddit_feed(df, stock_ticker, n=5):  # set n to 5 as default (due t
     df_filtered.sort_values(by="created_time", ascending=False, inplace=True)
 
     length = min(n, df_filtered.shape[0])  # in case there is less than n number of related posts
-    reddit_markdown = top_n_reddit_posts(df_filtered, length)  
+    reddit_markdown = top_n_reddit_posts(df_filtered, length, stock_ticker)  
 
     return dbc.Card(
         dbc.CardBody([
