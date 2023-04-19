@@ -36,21 +36,22 @@ def check_validity(
         print("\n##### INVALID: stock data is empty #####\n")
         return pd.DataFrame()
     
-    stock_time = stock_df.iloc[0].Datetime.astimezone(timezone.utc)
-    print("##### stock datetime #####")
-    print(stock_time)
-
-    print("##### table datetime #####")
-    print(table_time)
-
-    if stock_time == table_time:
-        print("\n##### VALID: first row overlop #####\n")
-        return stock_df.iloc[1:, :]
-    
-    if stock_time >= table_time:
-        print("\n##### VALID: no overlap #####\n")
+    if table_time == None:
+        print("\n##### VALID: table is empty #####\n")
         return stock_df
-    
-    print("\n##### INVALID: duplicate datapoints in table #####\n")
+
+    for i in range(len(stock_df)):
+        print("##### stock datetime #####")
+        stock_time = stock_df.iloc[i].Datetime.astimezone(timezone.utc)
+        print(stock_time)
+        print("##### table datetime #####")
+        print(table_time)
+        
+        if stock_time > table_time:
+            print("##### no overlop #####\n")
+            return stock_df.iloc[i:]
+
+        print("##### current row overlop #####\n")
+        
     return pd.DataFrame()
 

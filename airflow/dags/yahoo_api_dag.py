@@ -8,7 +8,6 @@ import time
 import pendulum
 from src.big_query import setup_client, load_dataframe_to_bigquery
 from src.transform import transform_stock_df, check_validity, query_table_time
-from src.util import DateTimeEncoder
 import yfinance as yf
 
 os.environ['NO_PROXY'] = "URL"  # for Mac OS
@@ -17,7 +16,7 @@ os.environ['NO_PROXY'] = "URL"  # for Mac OS
 ticker_list = ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA", "NVDA", "META", "AVGO", "ORCL", "CSCO", 
 "CRM", "TXN", "ADBE", "NFLX", "QCOM", "AMD", "IBM", "INTU", "INTC", "AMAT",
 "BKNG", "ADI", "ADP", "NOW", "PYPL", "ABNB", "FISV", "LRCX", "UBER", "EQIX"]
-dataset_id="Yahoo_test.{}"
+dataset_id="Yahoo_test.{}" # for testing only
 TOKEN_PATH = "token/is3107-grp18-e8944871c568.json" # use your own token
 client = setup_client(TOKEN_PATH)
 stock_tz = pendulum.timezone("America/New_York")
@@ -31,22 +30,22 @@ default_args = {
 @dag(
     'yahoo_api_dag', 
     default_args=default_args, 
-    description='Get stock price data',
+    description='Fetch latest stock data',
     schedule_interval='*/30 9-16 * * MON-FRI',
     start_date=datetime(2023, 1, 1, tzinfo=stock_tz),
     catchup=False,
     tags=['stock'],
     concurrency=16,
-    max_active_tasks=10
+    max_active_runs=10
 )
 def yahoo_api():
 
-    @task()
+    @task(max_active_tis_per_dag=10)
     def extract_stock_data(ticker):
         data = yf.download(tickers=ticker, period='30m', interval='5m')
         return data.to_json(orient='index', date_format='iso', date_unit='s')
 
-    @task()
+    @task(max_active_tis_per_dag=10)
     def transform_stock_data(stock_json: str):
         stock_df = pd.read_json(stock_json, orient='index')
         print(stock_df)
@@ -59,7 +58,7 @@ def yahoo_api():
         return stock_df.to_json(orient='records', date_format='iso', date_unit='s')
         
     
-    @task()
+    @task(max_active_tis_per_dag=10)
     def load_stock_data(ticker, stock_json_transformed: str): 
         stock_data = pd.read_json(stock_json_transformed, orient='records')
 
@@ -75,8 +74,16 @@ def yahoo_api():
 
         print("elapsed_time=", elapsed_time)
 
+    # Extract: call yahoo finance api to fetch stock data
+    stock_json_list = []
     for ticker in ticker_list:
         stock_json = extract_stock_data(ticker)
+        stock_json_list.append(stock_json)
+
+    # Transform & Load: process stock data & load it to remote db
+    for i in range(len(ticker_list)):
+        ticker = ticker_list[i]
+        stock_json = stock_json_list[i]
         stock_json_transformed = transform_stock_data(stock_json)
         load_stock_data(ticker, stock_json_transformed)
 
