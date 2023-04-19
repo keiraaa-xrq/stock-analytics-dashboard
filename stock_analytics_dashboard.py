@@ -18,14 +18,26 @@ warnings.filterwarnings("ignore")
 
 ##### Connect to data source #####
     
-credentials = service_account.Credentials.from_service_account_file('service_account_key.json')
+credentials = service_account.Credentials.from_service_account_file('key/service_account_key.json')
 project_id = "is3107-grp18"
 client = bigquery.Client(credentials=credentials, project=project_id)
+
+def retrieve_company_profile():
+    company_query = """
+    SELECT *
+    FROM Data.Companies
+    """
+
+    company_data = client.query(company_query).to_dataframe()
+    company_data["updated_time"] = pd.to_datetime(company_data["updated_time"])
+    company_data["updated_time"] = company_data["updated_time"].apply(lambda x: x-timedelta(hours=4))  # Converting from UTC to GMT-4
+    company_data["updated_time"] = company_data["updated_time"].apply(lambda x: datetime.strftime(x, "%Y-%m-%d"))
+    return company_data
 
 def retrieve_reddit_posts():
     reddit_query = """
     SELECT * 
-    FROM Reddit.posts
+    FROM Data.Reddit
     """
 
     reddit_data = client.query(reddit_query).to_dataframe()
@@ -53,12 +65,13 @@ def retrieve_stock_prices(stock_ticker):
 def retrieve_sentiments():
     twitter_query = """
     SELECT * 
-    FROM Twitter.Tweets
+    FROM Data.Twitter
     """
 
     twitter_data = client.query(twitter_query).to_dataframe()
     twitter_data = twitter_data[["tweet_id", "date", "sentiment"]]
     twitter_data["date"] = pd.to_datetime(twitter_data["date"])
+    twitter_data["date"] = twitter_data["date"].apply(lambda x: x-timedelta(hours=4))   # Converting from UTC to GMT-4
     twitter_data["date"] = twitter_data["date"].dt.strftime('%Y-%m-%d %H')  # "Round off" each data point to the nearest hour
     twitter_data["date"] = pd.to_datetime(twitter_data["date"])
 
@@ -83,7 +96,7 @@ def retrieve_sentiments():
 def generate_markdown_string(i, title, subreddit, url, upvotes, created_time):
     return "{}. [{}]({}) \n | **r/{}** | Upvotes: {} | _{}_ \n".format(i, title, url, subreddit, int(upvotes), created_time)
 
-def top_n_reddit_posts(df, n, ticker_name):    
+def top_n_reddit_posts(df, n, ticker_name):
     markdown = "### Latest Reddit Posts (${}) 📈 \n --- \n".format(ticker_name)   # Header
     for i in range(n):
         post = df.iloc[i]
@@ -99,6 +112,59 @@ def top_n_reddit_posts(df, n, ticker_name):
 
 ##### Functions for Generating Visualizations #####
 
+def generate_company_profile(df, stock_ticker):  # remove `ticker`, `name`, `updated_time`
+    df_filtered = df[df["ticker"] == stock_ticker]
+    df_filtered.sort_values(by="updated_time", ascending=False, inplace=True)
+    df_filtered_latest = df_filtered[:1].to_dict("records")[0]
+
+    # Company Metrics
+    market_cap = "$"+str(round(df_filtered_latest["market_cap"]/1000000000, 2))+"B" 
+    beta = round(df_filtered_latest["beta"], 2)  
+    dividend_yield = str(round(df_filtered_latest["dividend_yield"]*100, 5)) + "%"
+    peg_ratio = round(df_filtered_latest["peg_ratio"], 2)
+    trailing_pe = round(df_filtered_latest["trailing_pe"], 2)
+    trailing_eps = round(df_filtered_latest["trailing_eps"], 2)
+    forward_pe = round(df_filtered_latest["forward_pe"], 2)
+    forward_eps = round(df_filtered_latest["forward_eps"], 2)
+    earnings_quarterly_growth = str(round(df_filtered_latest["earnings_quarterly_growth"]*100, 2)) + "%"
+    earnings_annual_growth = str(round(df_filtered_latest["earnings_annual_growth"]*100, 2)) + "%"
+
+    row1 = html.Tr([
+                html.Td("Market Capitilization", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(market_cap), 
+                html.Td("Beta", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(beta)
+            ])
+    row2 = html.Tr([
+                html.Td("Dividend Yield", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(dividend_yield), 
+                html.Td("PEG Ratio", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(peg_ratio)
+            ])
+    row3 = html.Tr([
+                html.Td("Trailing P/E", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(trailing_pe), 
+                html.Td("Trailing EPS", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(trailing_eps)
+            ])
+    row4 = html.Tr([
+                html.Td("Forward P/E", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(forward_pe), 
+                html.Td("Forward EPS", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(forward_eps)
+            ])
+    row5 = html.Tr([
+                html.Td("Earnings Growth (Quarterly)", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(earnings_quarterly_growth), 
+                html.Td("Earnings Growth (Annual)", style={"background-color": "#E7E7E8", "font-weight":"600"}), html.Td(earnings_annual_growth)
+            ])
+
+    table_body = [html.Tbody([row1, row2, row3, row4, row5])]
+    table = dbc.Table(table_body, bordered=True)
+
+    return dbc.Card(
+                dbc.CardBody([
+                        html.H4("{} (${}) 💼".format(df_filtered_latest["name"], stock_ticker), className="card-title"),
+                        html.H6("Company Profile", className="card-subtitle"),
+                        html.Br(),
+                        html.Div(children=table),
+                        html.Div(children="(last updated on {})".format(df_filtered_latest["updated_time"]), style={"font-style":"italic"}),
+                        html.Br(),
+                        dbc.CardLink("More Information...", href="https://finance.yahoo.com/quote/{}?p={}".format(stock_ticker, stock_ticker)),
+                    ]),
+                ),
+
 def generate_twitter_widget(twitter_id):
     return html.Iframe(
                 srcDoc='''
@@ -107,10 +173,10 @@ def generate_twitter_widget(twitter_id):
                     </a> 
                     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
                 '''.format(twitter_id, twitter_id),
-                style={"width": "100%", "height":"400px"},
+                style={"width": "100%", "height":"350px"},
             )
 
-def generate_reddit_feed(df, stock_ticker, n=5):  # set n to 5 as default (due to sizing/aesthetics)
+def generate_reddit_feed(df, stock_ticker, n=4):  # set n to 4 as default (due to sizing/aesthetics)
     df_filtered = df[df["stock_ticker"] == stock_ticker]
     df_filtered.sort_values(by="created_time", ascending=False, inplace=True)
 
@@ -121,12 +187,12 @@ def generate_reddit_feed(df, stock_ticker, n=5):  # set n to 5 as default (due t
         dbc.CardBody([
             dcc.Markdown(children=reddit_markdown)
         ],
-        style={"height":"400px"}
+        style={"height":"375px"}
         ),
         color="light",
     )
 
-def generate_sentiment_chart(df, normalize=False, period=8, show_neutral=True):
+def generate_sentiment_chart(df, normalize=False, period=12, show_neutral=True):
     df.sort_values(by="datetime", ascending=False, inplace=True)
     df_filtered = df.iloc[:period]  # set to 8 as default
     
@@ -232,11 +298,15 @@ default_query = "AAPL"
 default_twitter_id = "WSJMarkets"
 
 # Load Data
+company_df = retrieve_company_profile()
 reddit_df = retrieve_reddit_posts()
 sentiment_df = retrieve_sentiments()
 price_df = retrieve_stock_prices(default_query)
 
-# Twitter Widget  <-- not sure how to display tweets from different twitter accounts
+# Company Profile
+company_profile = generate_company_profile(company_df, default_query)
+
+# Twitter Widget  
 twitter_widget = generate_twitter_widget(default_twitter_id)
 
 # Reddit Feed/Card
@@ -291,27 +361,14 @@ app.layout = html.Div([
                     html.Br(),
                     ])
                 ),
-            width={"size":3},
-            ),
-        dbc.Col([
-            dcc.Dropdown(
-                id="twitter-acc",
-                options=["WSJmarkets", "YahooFinance", "CNBCtech", "IBDinvestors", "FT", "markets"],
-                value="WSJmarkets",  # Assume to be $AAPL
-                ),
-            html.Div(
-                id="twitter-widget",
-                children=twitter_widget,
-                ),
-            ],
             width={"size":4},
             ),
         dbc.Col(
             html.Div(
-                id="reddit-feed",
-                children=reddit_feed,
+                id="company-profile",
+                children=company_profile
                 ),
-            width={"size":4},
+            width={"size":7},
             ),
         ],
         align="center",
@@ -319,9 +376,9 @@ app.layout = html.Div([
         ),
     dbc.Row([
         dbc.Col(
-            dcc.Graph(
-                id="sentiment-bar-chart",
-                figure=sentiment_chart,
+            html.Div(
+                id="reddit-feed",
+                children=reddit_feed,
                 ),
             width={"size":4},
             ),
@@ -336,6 +393,98 @@ app.layout = html.Div([
         align="center",
         justify="center",
         ),
+    html.Hr(),
+    dbc.Row(
+        html.I(
+            children="Market-level Information",
+            style={'text-align':'center'}
+            ),
+        ),
+    dbc.Row([
+        dbc.Col([
+            dcc.Dropdown(
+                id="twitter-acc",
+                options=["WSJmarkets", "YahooFinance", "CNBCtech", "IBDinvestors", "FT", "markets"],
+                value="WSJmarkets",  # Assume to be $AAPL
+                ),
+            html.Div(
+                id="twitter-widget",
+                children=twitter_widget,
+                ),
+            ],
+            width={"size":4},
+            ),
+        dbc.Col(
+            dcc.Graph(
+                id="sentiment-bar-chart",
+                figure=sentiment_chart,
+                ),
+            width={"size":7},
+            ),
+        ],
+        align="center",
+        justify="center",
+        ),    
+    # dbc.Row([
+    #     dbc.Col(
+    #         dbc.Card(
+    #             dbc.CardBody([
+    #                 dcc.Markdown(children=description),
+    #                 html.Br(),
+    #                 html.B(children="Stock Ticker:"),
+    #                 dcc.Dropdown(
+    #                     id="stock-ticker",
+    #                     options=list_of_stocks,
+    #                     value=list_of_stocks[0],  # Assume to be $AAPL
+    #                     ),
+    #                 html.Br(),
+    #                 ])
+    #             ),
+    #         width={"size":3},
+    #         ),
+    #     dbc.Col([
+    #         dcc.Dropdown(
+    #             id="twitter-acc",
+    #             options=["WSJmarkets", "YahooFinance", "CNBCtech", "IBDinvestors", "FT", "markets"],
+    #             value="WSJmarkets",  # Assume to be $AAPL
+    #             ),
+    #         html.Div(
+    #             id="twitter-widget",
+    #             children=twitter_widget,
+    #             ),
+    #         ],
+    #         width={"size":4},
+    #         ),
+    #     dbc.Col(
+    #         html.Div(
+    #             id="reddit-feed",
+    #             children=reddit_feed,
+    #             ),
+    #         width={"size":4},
+    #         ),
+    #     ],
+    #     align="center",
+    #     justify="center",
+    #     ),
+    # dbc.Row([
+    #     dbc.Col(
+    #         dcc.Graph(
+    #             id="sentiment-bar-chart",
+    #             figure=sentiment_chart,
+    #             ),
+    #         width={"size":4},
+    #         ),
+    #     dbc.Col(
+    #         dcc.Graph(
+    #             id="price-chart",
+    #             figure=price_chart,
+    #             ),
+    #         width={"size":7}
+    #         ),
+    #     ],
+    #     align="center",
+    #     justify="center",
+    #     ),
     
 ##### Loading Element #####
     dbc.Row([
@@ -355,6 +504,7 @@ app.layout = html.Div([
 @app.callback(
     [Output(component_id="price-chart", component_property="figure"),
     Output(component_id="reddit-feed", component_property="children"),
+    Output(component_id="company-profile", component_property="children"),
     Output(component_id="loading-output-1", component_property="children")],
     [Input(component_id="stock-ticker", component_property="value")],
     )
@@ -362,7 +512,8 @@ def update_charts(new_ticker):
     new_price_df = retrieve_stock_prices(new_ticker)
     new_price_chart = generate_price_chart(new_price_df, new_ticker)
     new_reddit_feed = generate_reddit_feed(reddit_df, new_ticker)
-    return [new_price_chart, new_reddit_feed, None]
+    new_company_profile = generate_company_profile(company_df, new_ticker)
+    return [new_price_chart, new_reddit_feed, new_company_profile, None]
 
 # Twitter Widget Selection
 @app.callback(
