@@ -2,16 +2,8 @@ import pendulum
 from typing import *
 import snscrape.modules.twitter as sntwitter
 import pandas as pd
+from static import TWITTER_ACCOUNTS
 
-
-TWITTER_ACCOUNTS = [
-    'CNBCtech',
-    'WSJmarkets',
-    'YahooFinance',
-    'FT',
-    'IBDinvestors',
-    'markets' # bloomberg markets
-]
 
 def get_tweets(twitter_accounts: List[str], start_time: pendulum.DateTime, end_time: pendulum.DateTime) -> List[Dict]:
     """
