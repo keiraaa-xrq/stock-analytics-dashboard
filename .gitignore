@@ -1,5 +1,6 @@
 # Project directories
 tests/
+key/
 
 # Others
 .DS_Store
