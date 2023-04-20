@@ -4,7 +4,7 @@ import pendulum
 from airflow.decorators import dag, task
 from src.scrape_tweets import get_tweets_n_min
 from src.transform_tweets import get_tweets_sentiments, generate_tweets_df
-from src.utils import get_key_file_name
+from src.utils import get_bigquery_key
 from src.bigquery import setup_client, load_dataframe_to_bigquery
 
 @dag(
@@ -50,7 +50,7 @@ def twitter_dag():
             # generate tweets df
             tweets_df = generate_tweets_df(tweets_list, sentiments)
             # set up bigquery client
-            key_file = get_key_file_name()
+            key_file = get_bigquery_key()
             client = setup_client(f'./key/{key_file}')
             # load df to bigquery
             table_id = f'{client.project}.Data.Twitter'

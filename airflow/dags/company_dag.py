@@ -4,7 +4,7 @@ import pendulum
 import pandas as pd
 from airflow.decorators import dag, task
 from src.company_info import get_companies_info
-from src.utils import get_key_file_name
+from src.utils import get_bigquery_key
 from src.bigquery import setup_client, load_dataframe_to_bigquery
 
 
@@ -54,7 +54,7 @@ def company_dag():
             company_df = pd.DataFrame(company_list)
             company_df['updated_time'] = company_df['updated_time'].apply(lambda x: pendulum.from_timestamp(x))
             # set up bigquery client
-            key_file = get_key_file_name()
+            key_file = get_bigquery_key()
             client = setup_client(f'./key/{key_file}')
             # load df to bigquery
             table_id = f'{client.project}.Data.Companies'

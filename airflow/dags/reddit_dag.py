@@ -4,7 +4,7 @@ import pendulum
 from airflow.decorators import dag, task
 import pandas as pd
 from src.reddit import *
-from src.utils import get_key_file_name
+from src.utils import get_bigquery_key
 from src.bigquery import setup_client, load_dataframe_to_bigquery
 
 @dag(
@@ -24,7 +24,7 @@ def reddit_dag():
     @task 
     def load_reddit_task(reddit_posts):
         os.environ['NO_PROXY'] = "URL"
-        key_file = get_key_file_name()
+        key_file = get_bigquery_key()
         client = setup_client(f'./key/{key_file}')
         # load df to bigquery
         # TODO: replace with real table name

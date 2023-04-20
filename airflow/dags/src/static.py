@@ -12,3 +12,5 @@ TWITTER_ACCOUNTS = [
     'barronsonline',
     'business',
 ]
+
+SUBREDDIT_LIST = ['stocks','wallstreetbets','stockmarket','options']

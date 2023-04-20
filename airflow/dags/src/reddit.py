@@ -1,8 +1,10 @@
-import praw
 from typing import *
-import datetime as dt
+import json
+import praw
 import pandas as pd
 import pendulum
+from .static import SUBREDDIT_LIST, TICKER_LIST
+from .utils import get_reddit_key
 
 reddit = praw.Reddit(
     client_id='Rlmvoi5snEil5RLoeCymJw',
@@ -11,8 +13,31 @@ reddit = praw.Reddit(
 )
 # headlines = set()
 
-def get_reddit_post(stock_ticker: str) -> List[Dict[str, Any]]:
-    subreddit_list = ['stocks','wallstreetbets','stockmarket','options']
+def setup_praw_reddit():
+    key_file_name = get_reddit_key()
+    with open(f'./key/{key_file_name}', 'r') as f:
+        key_file = json.load(f)
+    try:
+        client_id = key_file['client_id']
+        client_secret = key_file['client_secret']
+        user_agent = key_file['user_agent']
+    except Exception as e:
+        print(f'Error in retrieving required fields from key file: {e}')
+        raise e
+    try:
+        reddit = praw.Reddit(
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent=user_agent
+        )
+        return reddit
+    except Exception as e:
+        print(f'Error in setting up praw for reddit: {e}')
+        raise e
+    
+
+def get_reddit_post(stock_ticker: str, subreddit_list: List[str] = SUBREDDIT_LIST) -> List[Dict[str, Any]]:
+    reddit = setup_praw_reddit()
     reddit_list = []
     for subreddit in subreddit_list:
         try:
@@ -39,12 +64,7 @@ def get_reddit_post(stock_ticker: str) -> List[Dict[str, Any]]:
 
 # top 30 US tech firms by market cap
 
-def get_reddit_for_all_tickers() -> List[Dict[str, Any]]:
-    # TODO: replace with all tickers
-    ticker_list = ["AAPL","MSFT", "GOOG",
-    "AMZN", "TSLA", "NVDA", "META", "AVGO", "ORCL", "CSCO", 
-    "CRM", "TXN", "ADBE", "NFLX", "QCOM", "AMD", "IBM", "INTU", "INTC", "AMAT",
-    "BKNG", "ADI", "ADP", "ServiceNow", "PYPL", "ABNB", "FISV", "LRCX", "UBER", "EQIX"]
+def get_reddit_for_all_tickers(ticker_list: List[str] = TICKER_LIST) -> List[Dict[str, Any]]:
 
     reddit_all = []
     for ticker in ticker_list:
@@ -64,39 +84,6 @@ def generate_reddit_df(reddit_posts: List[Dict[str, Any]]) -> pd.DataFrame:
     return reddit_df
 
 
-# def get_id_ticker(df):
-#     df['stock_ticker'] = df['stock_ticker'].replace('ServiceNow','NOW')
-#     id_ticker_dict = {}
-#     # id_fields_dict = {}
-    
-#     for index, row in df.iterrows():
-#         id = row['id']
-#         ticker = row['stock_ticker']
-#         # fields = [row['subreddit'], row['title'], row['url'],row['upvotes'],row['comments'],row['author'],row['created_time']]
-#         if id in id_ticker_dict:
-#             value = id_ticker_dict[id]
-#             value.append(ticker)
-#             id_ticker_dict[id] = value
-#         else:
-#             id_ticker_dict[id] = [ticker]
-#         # id_fields_dict[id] = fields
-        
-#     # df = pd.DataFrame(list(id_ticker_dict.items()),columns = ['id','ticker']) 
-#     # df.sort_values('id')
-
-#     return id_ticker_dict
-
-
-# def get_full_table(df):
-#     id_ticker_dict = get_id_ticker(df)
-#     df.drop(['stock_ticker'], axis=1)
-#     df.drop_duplicates()
-#     tickers = []
-#     for index, row in df.iterrows():
-#         tickers.append(id_ticker_dict[row['id']])
-#     df['tickers'] = tickers
-#     return df
-
-# def get_table_with_duplicates(df):
-#     df = df.drop(['subreddit','title','url','comments','upvotes','author','created_time'], axis=1)
-#     return df
+if __name__ == '__main__':
+    reddits = get_reddit_post('AAPL')
+    print(reddits)

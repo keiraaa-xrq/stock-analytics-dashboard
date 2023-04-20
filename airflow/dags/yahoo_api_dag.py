@@ -8,7 +8,7 @@ import yfinance as yf
 from src.bigquery import setup_client, load_dataframe_to_bigquery
 from src.transform_yahoo import transform_stock_df, check_validity, query_table_time
 from src.static import TICKER_LIST
-from src.utils import get_key_file_name
+from src.utils import get_bigquery_key
 
 default_args = {
     'owner':'airflow',
@@ -18,16 +18,16 @@ default_args = {
     'yahoo_api_dag', 
     default_args=default_args, 
     description='Fetch latest stock data',
-    schedule_interval='*/30 9-16 * * MON-FRI',
+    schedule='*/30 9-16 * * MON-FRI',
     start_date=datetime(2023, 1, 1, tzinfo=pendulum.timezone("America/New_York")),
     catchup=False,
     tags=['stock'],
     concurrency=16,
-    max_active_runs=10
+    max_active_tasks=10
 )
 def yahoo_api_dag():
     dataset_id = 'Yahoo.{}'
-    key_file = get_key_file_name()
+    key_file = get_bigquery_key()
     client = setup_client(f'./key/{key_file}')
 
     @task(max_active_tis_per_dag=10)
