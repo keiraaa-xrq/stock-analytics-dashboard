@@ -1,4 +1,5 @@
 # stock-analytics-dashboard
+
 IS3107 Project
 
 1. Run `virtualenv env`

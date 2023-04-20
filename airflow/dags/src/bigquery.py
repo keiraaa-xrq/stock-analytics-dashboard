@@ -2,7 +2,6 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 import pandas as pd
 
-
 def setup_client(key_path: str) -> bigquery.Client:
     #Get Credentials and authenticate
     credentials = service_account.Credentials.from_service_account_file(
@@ -26,3 +25,13 @@ def load_dataframe_to_bigquery(
     print(
         f"Loaded {table.num_rows} rows and {len(table.schema)} columns to {table_id}."
     )
+
+def run_sql_bigquery(
+        client: bigquery.Client,
+        table_id: str, 
+        query: str
+    ):
+    query_string = query.format(table_id)
+    query_job = client.query(query_string)
+    result = query_job.result()
+    return result.to_dataframe()
