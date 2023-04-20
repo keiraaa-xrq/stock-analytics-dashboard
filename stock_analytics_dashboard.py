@@ -12,13 +12,15 @@ import numpy as np
 from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.oauth2 import service_account
+from airflow.dags.src.utils import get_bigquery_key
 
 import warnings
 warnings.filterwarnings("ignore")
 
 ##### Connect to data source #####
     
-credentials = service_account.Credentials.from_service_account_file('key/service_account_key.json')
+bigquery_key = get_bigquery_key()
+credentials = service_account.Credentials.from_service_account_file(f'./key/{bigquery_key}')
 project_id = "is3107-grp18"
 client = bigquery.Client(credentials=credentials, project=project_id)
 
@@ -395,8 +397,8 @@ app.layout = html.Div([
         ),
     html.Hr(),
     dbc.Row(
-        html.I(
-            children="Market-level Information",
+        html.H4(
+            children="Market-Level Information",
             style={'text-align':'center'}
             ),
         ),
