@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime, timezone
 from google.cloud import bigquery
-from src.big_query import run_sql_bigquery
+from src.bigquery import run_sql_bigquery
 
 def transform_stock_df(
         stock_df: pd.DataFrame

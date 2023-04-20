@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import time
 import pendulum
-from src.big_query import setup_client, load_dataframe_to_bigquery
+from src.bigquery import setup_client, load_dataframe_to_bigquery
 from src.transform_yahoo import transform_stock_df, check_validity, query_table_time
 import yfinance as yf
 
@@ -14,7 +14,7 @@ ticker_list = ["AAPL", "MSFT", "GOOG", "AMZN", "TSLA", "NVDA", "META", "AVGO", "
 "CRM", "TXN", "ADBE", "NFLX", "QCOM", "AMD", "IBM", "INTU", "INTC", "AMAT",
 "BKNG", "ADI", "ADP", "NOW", "PYPL", "ABNB", "FISV", "LRCX", "UBER", "EQIX"]
 dataset_id="Yahoo_test.{}" # for testing only
-TOKEN_PATH = "token/is3107-grp18-e8944871c568.json" # use your own token
+TOKEN_PATH = "key/service_account_key.json" # use your own token
 client = setup_client(TOKEN_PATH)
 stock_tz = pendulum.timezone("America/New_York")
 

@@ -26,3 +26,13 @@ def load_dataframe_to_bigquery(
     print(
         f"Loaded {table.num_rows} rows and {len(table.schema)} columns to {table_id}."
     )
+
+def run_sql_bigquery(
+        client: bigquery.Client,
+        table_id: str, 
+        query: str
+    ):
+    query_string = query.format(table_id)
+    query_job = client.query(query_string)
+    result = query_job.result()
+    return result.to_dataframe()
