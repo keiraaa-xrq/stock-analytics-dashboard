@@ -7,12 +7,13 @@ from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from google.cloud import bigquery
-from google.oauth2 import service_account
 from airflow.dags.src.utils import get_bigquery_key
+from airflow.dags.src.bigquery import setup_client
+from airflow.dags.src.aggregate_sentiments import aggregate_sentiments
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,14 +21,16 @@ warnings.filterwarnings("ignore")
 ##### Connect to data source #####
     
 bigquery_key = get_bigquery_key()
-credentials = service_account.Credentials.from_service_account_file(f'./key/{bigquery_key}')
-project_id = "is3107-grp18"
-client = bigquery.Client(credentials=credentials, project=project_id)
+client = setup_client(f'./key/{bigquery_key}')
 
-def retrieve_company_profile():
-    company_query = """
-    SELECT *
+def retrieve_company_profile(ticker):
+    company_query = f"""
+    SELECT * FROM Data.Companies
+    WHERE `ticker` = "{ticker}" AND `updated_time` = (
+    SELECT MAX(`updated_time`)
     FROM Data.Companies
+    WHERE `ticker` = "{ticker}"
+    )
     """
 
     company_data = client.query(company_query).to_dataframe()
@@ -36,10 +39,12 @@ def retrieve_company_profile():
     company_data["updated_time"] = company_data["updated_time"].apply(lambda x: datetime.strftime(x, "%Y-%m-%d"))
     return company_data
 
-def retrieve_reddit_posts():
-    reddit_query = """
-    SELECT * 
-    FROM Data.Reddit
+def retrieve_reddit_posts(ticker, limit):
+    reddit_query = f"""
+    SELECT * FROM Data.Reddit
+    WHERE `stock_ticker` = "{ticker}"
+    ORDER BY `created_time` DESC
+    LIMIT {limit}
     """
 
     reddit_data = client.query(reddit_query).to_dataframe()
@@ -49,34 +54,43 @@ def retrieve_reddit_posts():
     reddit_data = reddit_data[["stock_ticker","title","subreddit","url","upvotes","created_time"]]   # store the relevant columns only
     return reddit_data
 
-def retrieve_stock_prices(stock_ticker):
-    stock_query = """
-    SELECT * 
-    FROM Yahoo.{}
-    """.format(stock_ticker)
+def retrieve_stock_prices(stock_ticker, days, window):
+    limit = window + days * 78 #for SMA
+    stock_query = f"""
+    SELECT * FROM `Yahoo.{stock_ticker}` 
+    ORDER BY `Datetime` DESC
+    LIMIT {limit}
+    """
     
     stock_data = client.query(stock_query).to_dataframe()
     stock_data["Datetime"] = pd.to_datetime(stock_data["Datetime"])
     stock_data["Datetime"] = stock_data["Datetime"].apply(lambda x: x-timedelta(hours=4))   # Converting from UTC to GMT-4
 
-    stock_data.sort_values(by="Datetime", ascending=True, inplace=True)  # need to arrange in ascending order to compute SMA
-    sma = stock_data["Close"].rolling(window=20).mean()  # compute SMA, "window = 20" refers to 20-period MA
-    stock_data["SMA"] = sma
+    # stock_data.sort_values(by="Datetime", ascending=True, inplace=True)  # need to arrange in ascending order to compute SMA
+    sma = stock_data["Close"].iloc[::-1].rolling(window=window).mean().tolist()  # compute SMA, "window = 20" refers to 20-period MA
+    stock_data["SMA"] = sma[::-1] # reverse sma order
     return stock_data
 
-def retrieve_sentiments():
-    twitter_query = """
-    SELECT * 
+def retrieve_sentiments(period):
+    twitter_query = f"""
+    SELECT tweet_id, time_pulled, sentiment 
     FROM Data.Twitter
+    WHERE time_pulled IN
+    (SELECT DISTINCT time_pulled
+    FROM Data.Twitter
+    ORDER BY time_pulled DESC 
+    LIMIT {period})
     """
 
     twitter_data = client.query(twitter_query).to_dataframe()
-    twitter_data = twitter_data[["tweet_id", "date", "sentiment"]]
-    twitter_data["date"] = pd.to_datetime(twitter_data["date"])
-    twitter_data["date"] = twitter_data["date"].apply(lambda x: x-timedelta(hours=4))   # Converting from UTC to GMT-4
-    twitter_data["date"] = twitter_data["date"].dt.strftime('%Y-%m-%d %H')  # "Round off" each data point to the nearest hour
-    twitter_data["date"] = pd.to_datetime(twitter_data["date"])
+    # twitter_data = twitter_data[["tweet_id", "time_pulled", "sentiment"]]
+    twitter_data["time_pulled"] = pd.to_datetime(twitter_data["time_pulled"])
+    twitter_data["time_pulled"] = twitter_data["time_pulled"].apply(lambda x: x-timedelta(hours=4))   # Converting from UTC to GMT-4
+    twitter_data["time_pulled"] = twitter_data["time_pulled"].dt.strftime('%Y-%m-%d %H')  # "Round off" each data point to the nearest hour
+    twitter_data["time_pulled"] = pd.to_datetime(twitter_data["time_pulled"])
 
+    sentiments_df = aggregate_sentiments(twitter_data)
+    """
     twitter_data_agg = twitter_data.groupby(["date", "sentiment"]).size().to_frame("count")  # aggregate the data by date and sentiment
     twitter_data_agg.reset_index(inplace=True)
 
@@ -90,7 +104,8 @@ def retrieve_sentiments():
     twitter_data_agg_pivot.sort_values(by="datetime", ascending=False, inplace=True)
 
     sentiments = twitter_data_agg_pivot
-    return sentiments
+    """
+    return sentiments_df
 
 
 ##### Additional Helper Functions (Mainly for Reddit Feed) #####
@@ -114,10 +129,14 @@ def top_n_reddit_posts(df, n, ticker_name):
 
 ##### Functions for Generating Visualizations #####
 
-def generate_company_profile(df, stock_ticker):  # remove `ticker`, `name`, `updated_time`
+def generate_company_profile(stock_ticker):  # remove `ticker`, `name`, `updated_time`
+    """
     df_filtered = df[df["ticker"] == stock_ticker]
     df_filtered.sort_values(by="updated_time", ascending=False, inplace=True)
     df_filtered_latest = df_filtered[:1].to_dict("records")[0]
+    """
+    df = retrieve_company_profile(stock_ticker)
+    df_filtered_latest = df.to_dict("records")[0]
 
     # Company Metrics
     market_cap = "$"+str(round(df_filtered_latest["market_cap"]/1000000000, 2))+"B" 
@@ -178,9 +197,12 @@ def generate_twitter_widget(twitter_id):
                 style={"width": "100%", "height":"350px"},
             )
 
-def generate_reddit_feed(df, stock_ticker, n=4):  # set n to 4 as default (due to sizing/aesthetics)
+def generate_reddit_feed(stock_ticker, n=4):  # set n to 4 as default (due to sizing/aesthetics)
+    """
     df_filtered = df[df["stock_ticker"] == stock_ticker]
     df_filtered.sort_values(by="created_time", ascending=False, inplace=True)
+    """
+    df_filtered = retrieve_reddit_posts(stock_ticker, n)
 
     length = min(n, df_filtered.shape[0])  # in case there is less than n number of related posts
     reddit_markdown = top_n_reddit_posts(df_filtered, length, stock_ticker)  
@@ -194,18 +216,20 @@ def generate_reddit_feed(df, stock_ticker, n=4):  # set n to 4 as default (due t
         color="light",
     )
 
-def generate_sentiment_chart(df, normalize=False, period=12, show_neutral=True):
-    df.sort_values(by="datetime", ascending=False, inplace=True)
-    df_filtered = df.iloc[:period]  # set to 8 as default
+def generate_sentiment_chart(normalize=False, period=12, show_neutral=True):
+    df = retrieve_sentiments(period)
+    df_filtered = df.sort_values(by="datetime", ascending=False)
+    # df_filtered = df.iloc[:period]  # set to 8 as default
     
     # Data normalization
+    
     if normalize:
         df_filtered["num_all"] = df_filtered["num_neg"] + df_filtered["num_neu"] + df_filtered["num_pos"]
         df_filtered["num_neg"] = df_filtered["num_neg"] / df_filtered["num_all"]
         df_filtered["num_neu"] = df_filtered["num_neu"] / df_filtered["num_all"]
         df_filtered["num_pos"] = df_filtered["num_pos"] / df_filtered["num_all"]
-    df_filtered["nps"] = df_filtered["num_pos"] - df_filtered["num_neg"]
-
+    # df_filtered["nps"] = df_filtered["num_pos"] - df_filtered["num_neg"]
+    
     # Data transformation (for visualization purposes)
     df_filtered["num_neg"] = df_filtered["num_neg"] * -1   # for the divergent bar chart
     if not show_neutral:
@@ -223,8 +247,10 @@ def generate_sentiment_chart(df, normalize=False, period=12, show_neutral=True):
         "num_pos": "Positive",
     }
 
+    sentiment_chart = make_subplots(specs=[[{"secondary_y": True}]])
+
     # Divergent Stacked Bar Chart 
-    sentiment_chart = go.Figure()
+    # sentiment_chart = go.Figure()
     sentiment_type = ["num_neg", "num_neu", "num_pos"]
     for col in sentiment_type:
         sentiment_chart.add_trace(go.Bar(  
@@ -233,7 +259,9 @@ def generate_sentiment_chart(df, normalize=False, period=12, show_neutral=True):
             name = legend_dict[col],
             orientation = "v",
             marker_color = color_dict[col],   
-        ))
+        ),
+        secondary_y=False,
+        )
     
     sentiment_chart.update_layout(
         barmode = "relative",
@@ -245,19 +273,21 @@ def generate_sentiment_chart(df, normalize=False, period=12, show_neutral=True):
     sentiment_chart.add_trace(
         go.Scatter(
             x = df_filtered["datetime"],
-            y = df_filtered["nps"],
+            y = df_filtered["sentiment_score"],
             line = dict(color='#3C3C3D', width=1),
-            name = "Net Sentiment",
-            )
+            name = "Sentiment Score",
+        ),
+        secondary_y=True
         )
+    
+    sentiment_chart.update_yaxes(range=[-1, 1], secondary_y=True)
 
     return sentiment_chart
 
-def generate_price_chart(df, stock_ticker, days=3):
+def generate_price_chart(stock_ticker, days=3, window=20):
 
-    df_filtered = df
-    df_filtered.sort_values(by="Datetime", ascending=False, inplace=True)
-    df_filtered_recent = df_filtered.iloc[:days*78]  # each day has 78 data points (5-min intervals), show 3 days worth by default
+    df = retrieve_stock_prices(stock_ticker, days, window)
+    df_filtered_recent = df.iloc[:days*78]  # each day has 78 data points (5-min intervals), show 3 days worth by default
     price_chart = go.Figure(go.Candlestick(
         x = df_filtered_recent['Datetime'],
         open = df_filtered_recent['Open'],
@@ -299,26 +329,20 @@ def generate_price_chart(df, stock_ticker, days=3):
 default_query = "AAPL"
 default_twitter_id = "WSJMarkets"
 
-# Load Data
-company_df = retrieve_company_profile()
-reddit_df = retrieve_reddit_posts()
-sentiment_df = retrieve_sentiments()
-price_df = retrieve_stock_prices(default_query)
-
 # Company Profile
-company_profile = generate_company_profile(company_df, default_query)
+company_profile = generate_company_profile(default_query)
 
 # Twitter Widget  
 twitter_widget = generate_twitter_widget(default_twitter_id)
 
 # Reddit Feed/Card
-reddit_feed = generate_reddit_feed(reddit_df, default_query)
+reddit_feed = generate_reddit_feed(default_query)
 
 # Sentiment Chart 
-sentiment_chart = generate_sentiment_chart(sentiment_df)
+sentiment_chart = generate_sentiment_chart()
 
 # Price Chart
-price_chart = generate_price_chart(price_df, default_query)
+price_chart = generate_price_chart(default_query)
 
 
 ##### Miscellaneous #####
@@ -326,13 +350,15 @@ price_chart = generate_price_chart(price_df, default_query)
 description = '''
 ### Stock Analytics Dashboard 
 ---
-Our dashboard is one-stop platform for in-depth insights into the performance \
+Our dashboard is a one-stop platform for in-depth insights into the performance \
 of various stocks. Our dashboard provides real-time information through features \
 such as: 
  - Historical Stock Price Chart
  - Market Sentiment Analysis
  - Embedded Twitter Feed
  - Related Reddit Posts
+
+*Note: All time points are in GMT-4.*
 '''
 
 stock_dataset_id = "Yahoo"
@@ -452,10 +478,9 @@ app.layout = html.Div([
     [Input(component_id="stock-ticker", component_property="value")],
     )
 def update_charts(new_ticker):
-    new_price_df = retrieve_stock_prices(new_ticker)
-    new_price_chart = generate_price_chart(new_price_df, new_ticker)
-    new_reddit_feed = generate_reddit_feed(reddit_df, new_ticker)
-    new_company_profile = generate_company_profile(company_df, new_ticker)
+    new_price_chart = generate_price_chart(new_ticker)
+    new_reddit_feed = generate_reddit_feed(new_ticker)
+    new_company_profile = generate_company_profile(new_ticker)
     return [new_price_chart, new_reddit_feed, new_company_profile, None]
 
 # Twitter Widget Selection

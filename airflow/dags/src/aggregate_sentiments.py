@@ -18,7 +18,7 @@ def calculate_sentiment_score(
         else:
             num_neu += 1
     if num_pos == num_neg:
-        return 0
+        return [num_neg, num_neu, num_pos, 0]
     else:
         score = (num_pos - num_neg) / (num_pos + num_neg)
         return [num_neg, num_neu, num_pos, score]
@@ -41,5 +41,5 @@ def aggregate_sentiments(
         sent_agg = calculate_sentiment_score(tmp[sent_col], neg_label, pos_label)
         sent_agg = [t] + sent_agg
         res.append(sent_agg)
-    res_df = pd.DataFrame(res, columns=['time', 'num_neg', 'num_neu', 'num_pos', 'score'])
+    res_df = pd.DataFrame(res, columns=['datetime', 'num_neg', 'num_neu', 'num_pos', 'sentiment_score'])
     return res_df
