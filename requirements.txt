@@ -38,7 +38,6 @@ dash-bootstrap-components==1.4.1
 dash-core-components==2.0.0
 dash-html-components==2.0.0
 dash-table==5.0.0
-db-dtypes==1.0.5
 defusedxml==0.7.1
 Deprecated==1.2.13
 dill==0.3.1.1
@@ -67,6 +66,7 @@ google-crc32c==1.5.0
 google-resumable-media==2.4.1
 googleapis-common-protos==1.58.0
 graphviz==0.20.1
+greenlet==2.0.2
 grpcio==1.51.3
 grpcio-status==1.51.3
 gunicorn==20.1.0
@@ -167,5 +167,5 @@ Werkzeug==2.2.2
 wrapt==1.14.1
 WTForms==3.0.1
 yarl==1.8.2
-yfinance==0.2.12
+yfinance==0.2.18
 zipp==3.11.0

@@ -3,7 +3,7 @@ import os
 import pendulum
 from airflow.decorators import dag, task
 from src.scrape_tweets import get_tweets_n_min
-from src.predict_sentiments import get_tweets_sentiments, generate_tweets_df
+from src.transform_tweets import get_tweets_sentiments, generate_tweets_df
 from src.utils import get_key_file_name
 from src.bigquery import setup_client, load_dataframe_to_bigquery
 
@@ -29,28 +29,32 @@ def twitter_dag():
         return tweets_list
     
     @task
-    def predict_sentiments_task(tweets_list: List[Dict]) -> List[str]:
+    def predict_sentiments_task(tweets_list: List[Dict]) -> List[int]:
         """
         Predict sentiments of the extracted tweets.
         """
         os.environ['NO_PROXY'] = "URL"
-        sentiments = get_tweets_sentiments(tweets_list)
-        return sentiments
+        if len(tweets_list) > 0:
+            sentiments = get_tweets_sentiments(tweets_list)
+            return sentiments
+        else:
+            return []
 
     @task
-    def load_tweets_task(tweets_list: List['Dict'], sentiments: List[int]):
+    def load_tweets_task(tweets_list: List[Dict], sentiments: List[int]):
         """
         Load tweets and sentiments to bigquery.
         """
         os.environ['NO_PROXY'] = "URL"
-        # generate tweets df
-        tweets_df = generate_tweets_df(tweets_list, sentiments)
-        # set up bigquery client
-        key_file = get_key_file_name()
-        client = setup_client(f'./key/{key_file}')
-        # load df to bigquery
-        table_id = f'{client.project}.Twitter.Tweets'
-        load_dataframe_to_bigquery(client, table_id, tweets_df)
+        if len(tweets_list) > 0:
+            # generate tweets df
+            tweets_df = generate_tweets_df(tweets_list, sentiments)
+            # set up bigquery client
+            key_file = get_key_file_name()
+            client = setup_client(f'./key/{key_file}')
+            # load df to bigquery
+            table_id = f'{client.project}.Data.Twitter'
+            load_dataframe_to_bigquery(client, table_id, tweets_df)
 
         
     # task dependdency
