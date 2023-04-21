@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from airflow.dags.src.utils import get_bigquery_key
 from airflow.dags.src.bigquery import setup_client
 from airflow.dags.src.aggregate_sentiments import aggregate_sentiments
+from airflow.dags.src.static import TWITTER_ACCOUNTS
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -432,7 +433,7 @@ app.layout = html.Div([
         dbc.Col([
             dcc.Dropdown(
                 id="twitter-acc",
-                options=["WSJmarkets", "YahooFinance", "CNBCtech", "IBDinvestors", "FT", "markets"],
+                options=TWITTER_ACCOUNTS,
                 value="WSJmarkets",  # Assume to be $AAPL
                 ),
             html.Div(
@@ -494,4 +495,4 @@ def update_twitter_widget(new_twitter_id):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=False)
