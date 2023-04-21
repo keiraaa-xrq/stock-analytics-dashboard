@@ -51,7 +51,7 @@ One-stop platform for investors to track the price statistics and related social
 1. Specify the home for Airflow as an environment variable.
    - `export AIRFLOW_HOME=$(pwd)/airflow`
 2. Activate Airflow. This should create the configuration file `airflow.cfg` under the `airflow` directory.
-   - `airflow --version`
+   - `airflow version`
 3. Go to `airflow.cfg` and change `load_examples` to `False`
 4. Initialise Airflow, including inistialising the database, creating an user and starting the webserver.
    - `airflow standalone`
